@@ -1,0 +1,1 @@
+{"version":3,"file":"defaultBackupSources.d.ts","sourceRoot":"","sources":["../../src/constants/defaultBackupSources.ts"],"names":[],"mappings":"AAAA;;GAEG;AAEH,MAAM,WAAW,gBAAgB;IAC/B,EAAE,EAAE,MAAM,CAAC;IACX,KAAK,EAAE,MAAM,CAAC;IACd,UAAU,EAAE,MAAM,CAAC;IACnB,QAAQ,EAAE,MAAM,CAAC;IACjB,gBAAgB,CAAC,EAAE,OAAO,CAAC;CAC5B;AAED,eAAO,MAAM,sBAAsB,EAAE,gBAAgB,EAgEpD,CAAC"}
