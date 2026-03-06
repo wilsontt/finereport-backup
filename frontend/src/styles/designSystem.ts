@@ -8,22 +8,22 @@ export function cn(...inputs: ClassValue[]) {
 // Enterprise IT Management System Design System (Professional, Clean, Minimalist, High Reliability)
 export const UI_PRO_MAX = {
   // --- Layout & Structure ---
-  appContainer: "min-h-screen bg-slate-50 text-slate-900 font-sans selection:bg-blue-200 selection:text-blue-900",
-  pageWrapper: "max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10",
+  appContainer: "min-h-screen bg-slate-100 text-slate-900 font-sans selection:bg-blue-200 selection:text-blue-900 flex flex-col items-center py-12 relative overflow-hidden",
+  pageWrapper: "w-full max-w-3xl px-4 sm:px-6 relative z-10",
   
   // Header
-  header: "flex items-center justify-between pb-8 mb-8 border-b border-slate-200",
-  headerTitle: "text-2xl font-semibold tracking-tight text-slate-900 flex items-center gap-3",
-  headerSubtitle: "text-sm text-slate-500 font-medium",
+  header: "flex flex-col items-center justify-center pb-8 mb-8 text-center",
+  headerTitle: "text-4xl font-bold tracking-tight text-slate-900 mt-5 mb-4",
+  headerSubtitle: "text-xl text-slate-600",
   
   // Cards / Panels
-  card: "bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden",
-  cardHeader: "px-6 py-5 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between",
-  cardTitle: "text-lg font-semibold text-slate-800",
-  cardBody: "p-6",
+  card: "bg-white rounded-2xl shadow-sm overflow-hidden relative",
+  cardHeader: "px-8 py-8 pb-2 bg-white flex flex-col items-center justify-center text-center",
+  cardTitle: "text-xl font-bold text-slate-800 mt-4",
+  cardBody: "p-8",
   
   // Section Headers
-  sectionTitle: "text-base font-semibold text-slate-800 mb-4 flex items-center gap-2",
+  sectionTitle: "text-slate-400 text-sm uppercase tracking-widest mb-8 flex items-center gap-2",
   
   // --- Typography ---
   h2: "text-2xl font-bold text-slate-900",
@@ -33,17 +33,17 @@ export const UI_PRO_MAX = {
   value: "text-base font-medium text-slate-900",
   
   // --- Inputs ---
-  input: "w-full bg-white border border-slate-300 rounded-lg px-4 py-2.5 text-base text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition-all shadow-sm",
-  inputSm: "w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition-all shadow-sm",
-  inputVerification: "w-full bg-white border border-slate-300 rounded-lg px-4 py-3 text-center text-3xl tracking-[0.3em] font-mono font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition-all shadow-sm h-16",
+  input: "w-full bg-white border-2 border-slate-200 rounded-lg px-4 py-3 text-base text-slate-900 placeholder:text-slate-400 outline-none transition-all duration-200 focus:border-blue-500 focus:ring-[3px] focus:ring-blue-500/20",
+  inputSm: "w-full bg-white border-2 border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 outline-none transition-all duration-200 focus:border-blue-500 focus:ring-[3px] focus:ring-blue-500/20",
+  inputVerification: "w-full bg-white border-2 border-slate-200 rounded-lg px-4 py-3 text-center text-3xl tracking-[0.3em] font-mono font-bold text-slate-900 outline-none transition-all duration-200 focus:border-blue-500 focus:ring-[3px] focus:ring-blue-500/20 h-16",
   
   // --- Buttons Combinations ---
-  buttonPrimary: "inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed px-6 py-3 text-base bg-blue-600 hover:bg-blue-700 text-white shadow-sm focus:ring-blue-500",
-  buttonSmPrimary: "inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed px-4 py-2.5 text-sm bg-blue-600 hover:bg-blue-700 text-white shadow-sm focus:ring-blue-500",
-  buttonSecondary: "inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed px-6 py-3 text-base bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 shadow-sm focus:ring-slate-500",
-  buttonSmSecondary: "inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed px-4 py-2.5 text-sm bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 shadow-sm focus:ring-slate-500",
-  buttonInline: "inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed px-4 py-2.5 text-sm bg-slate-100 hover:bg-slate-200 text-slate-700 border border-transparent",
-  buttonDangerSm: "inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed px-3 py-2 text-sm bg-red-50 hover:bg-red-100 text-red-600 border border-transparent",
+  buttonPrimary: "btn-ripple inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-transform duration-200 px-6 py-3 text-base bg-blue-500 hover:bg-blue-600 active:scale-[0.98] text-white cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100",
+  buttonSmPrimary: "btn-ripple inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-transform duration-200 px-4 py-2.5 text-sm bg-blue-500 hover:bg-blue-600 active:scale-[0.98] text-white cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100",
+  buttonSecondary: "inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-all duration-200 px-6 py-3 text-base bg-slate-200 hover:bg-slate-300 active:bg-slate-400 active:scale-[0.98] text-slate-700 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100",
+  buttonSmSecondary: "inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-all duration-200 px-4 py-2.5 text-sm bg-slate-200 hover:bg-slate-300 active:bg-slate-400 active:scale-[0.98] text-slate-700 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100",
+  buttonInline: "inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-all duration-200 px-4 py-2.5 text-sm bg-slate-100 hover:bg-slate-200 active:bg-slate-300 active:scale-[0.98] text-slate-700 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100",
+  buttonDangerSm: "inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-all duration-200 px-3 py-2 text-sm bg-red-50 hover:bg-red-100 active:bg-red-200 active:scale-[0.98] text-red-600 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100",
   
   // --- Alerts & Status ---
   alertBase: "rounded-lg p-4 flex items-start gap-3 text-sm",

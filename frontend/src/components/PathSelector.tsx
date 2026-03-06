@@ -171,15 +171,11 @@ export function PathSelector({
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className={UI_PRO_MAX.card}>
         <div className={UI_PRO_MAX.cardHeader}>
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-blue-100 text-blue-600 rounded-lg">
-              <FolderOpen className="w-5 h-5" />
-            </div>
-            <div>
-              <h2 className={UI_PRO_MAX.cardTitle}>備份目錄設定</h2>
-              <p className={UI_PRO_MAX.pSub}>請確認遠端來源與 NAS 儲存路徑</p>
-            </div>
+          <div className="p-3 bg-blue-50 text-blue-600 rounded-2xl mb-4">
+            <FolderOpen className="w-8 h-8" />
           </div>
+          <h2 className={UI_PRO_MAX.cardTitle}>備份目錄設定</h2>
+          <p className={UI_PRO_MAX.pSub}>請確認遠端來源與 NAS 儲存路徑</p>
         </div>
 
         <div className={UI_PRO_MAX.cardBody}>

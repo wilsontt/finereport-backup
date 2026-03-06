@@ -58,15 +58,11 @@ export function HumanVerification({ verifiedNasPath, onDone }: Props) {
       <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
         <div className={UI_PRO_MAX.card}>
           <div className={UI_PRO_MAX.cardHeader}>
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-emerald-100 text-emerald-600 rounded-lg">
-                <CheckCircle2 className="w-5 h-5" />
-              </div>
-              <div>
-                <h2 className={UI_PRO_MAX.cardTitle}>安全驗證已通過</h2>
-                <p className={UI_PRO_MAX.pSub}>您可以繼續進行下一步</p>
-              </div>
+            <div className="p-3 bg-emerald-50 text-emerald-600 rounded-2xl mb-4">
+              <CheckCircle2 className="w-8 h-8" />
             </div>
+            <h2 className={UI_PRO_MAX.cardTitle}>安全驗證已通過</h2>
+            <p className={UI_PRO_MAX.pSub}>您可以繼續進行下一步</p>
           </div>
 
           <div className={UI_PRO_MAX.cardBody}>
@@ -107,19 +103,15 @@ export function HumanVerification({ verifiedNasPath, onDone }: Props) {
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className={UI_PRO_MAX.card}>
         <div className={UI_PRO_MAX.cardHeader}>
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-blue-100 text-blue-600 rounded-lg">
-              <ShieldCheck className="w-5 h-5" />
-            </div>
-            <div>
-              <h2 className={UI_PRO_MAX.cardTitle}>安全驗證</h2>
-              <p className={UI_PRO_MAX.pSub}>請輸入下方顯示的 4 碼數字以確認您的身分</p>
-            </div>
+          <div className="p-3 bg-blue-50 text-blue-600 rounded-2xl mb-4">
+            <ShieldCheck className="w-8 h-8" />
           </div>
+          <h2 className={UI_PRO_MAX.cardTitle}>安全驗證</h2>
+          <p className={UI_PRO_MAX.pSub}>請輸入下方顯示的 4 碼數字以確認您的身分</p>
         </div>
 
-        <div className={UI_PRO_MAX.cardBody}>
-          <div className="flex flex-col items-center max-w-sm mx-auto py-8">
+        <div className={UI_PRO_MAX.cardBody + " flex flex-col items-center justify-center"}>
+          <div className="w-full max-w-sm flex flex-col items-center py-6">
             <div className="w-full mb-8 relative group">
               <div className="absolute inset-0 bg-slate-100 rounded-xl transform translate-y-2 group-hover:translate-y-3 transition-transform" />
               <div className="relative bg-white border border-slate-200 rounded-xl p-8 flex flex-col items-center justify-center shadow-sm">
@@ -128,14 +120,14 @@ export function HumanVerification({ verifiedNasPath, onDone }: Props) {
                     {displayCode}
                   </div>
                 ) : (
-                  <div className="h-12 flex items-center">
+                  <div className="h-12 flex items-center justify-center">
                     <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
                   </div>
                 )}
               </div>
             </div>
 
-            <div className="w-full space-y-5">
+            <div className="w-full space-y-6 flex flex-col items-center">
               <input
                 placeholder="0000"
                 maxLength={4}
@@ -145,7 +137,7 @@ export function HumanVerification({ verifiedNasPath, onDone }: Props) {
                 autoFocus
               />
               
-              <div className="grid grid-cols-2 gap-3">
+              <div className="w-full grid grid-cols-2 gap-3">
                 <button onClick={fetchCode} disabled={loading} className={`${UI_PRO_MAX.buttonSecondary} w-full`}>
                   <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
                   重新取得

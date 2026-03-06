@@ -145,15 +145,11 @@ export function BackupProgress({
       <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
         <div className={UI_PRO_MAX.card}>
           <div className={UI_PRO_MAX.cardHeader}>
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-blue-100 text-blue-600 rounded-lg">
-                <Play className="w-5 h-5" />
-              </div>
-              <div>
-                <h2 className={UI_PRO_MAX.cardTitle}>開始備份</h2>
-                <p className={UI_PRO_MAX.pSub}>設定暫存目錄與保留策略後即可開始備份</p>
-              </div>
+            <div className="p-3 bg-blue-50 text-blue-600 rounded-2xl mb-4">
+              <Play className="w-8 h-8 ml-1" />
             </div>
+            <h2 className={UI_PRO_MAX.cardTitle}>開始備份</h2>
+            <p className={UI_PRO_MAX.pSub}>設定暫存目錄與保留策略後即可開始備份</p>
           </div>
 
           <div className={UI_PRO_MAX.cardBody}>
@@ -273,63 +269,68 @@ export function BackupProgress({
   const showReport = isComplete && report && !report.includes('（報告產生中）');
 
   return (
-    <div className="animate-slide-up">
-      <div className="mb-8">
-        <h2 className="text-2xl font-bold text-slate-900">備份進度</h2>
-        <p className="text-slate-500 mt-2">
-          {done ? (backupFailed ? '備份過程中發生錯誤' : '備份作業已順利完成') : '正在執行備份作業，請稍候...'}
-        </p>
-      </div>
+    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <div className={UI_PRO_MAX.card}>
+        <div className={UI_PRO_MAX.cardHeader}>
+          <div className="p-3 bg-blue-50 text-blue-600 rounded-2xl mb-4">
+            {done ? (backupFailed ? <XCircle className="w-8 h-8 text-red-500" /> : <CheckCircle2 className="w-8 h-8 text-emerald-500" />) : <Play className="w-8 h-8 ml-1" />}
+          </div>
+          <h2 className={UI_PRO_MAX.cardTitle}>備份執行進度</h2>
+          <p className={UI_PRO_MAX.pSub}>
+            {done ? (backupFailed ? '備份過程中發生錯誤' : '備份作業已順利完成') : '系統正在處理備份作業中...'}
+          </p>
+        </div>
 
-      <div className="bg-white border border-slate-100 shadow-sm rounded-2xl p-6 mb-6">
-        <div className="flex justify-between items-end mb-3">
-          <div>
-            <div className="flex items-center gap-2">
-              {done ? (
-                backupFailed ? <XCircle className="w-5 h-5 text-red-500" /> : <CheckCircle2 className="w-5 h-5 text-emerald-500" />
-              ) : (
-                <Loader2 className="w-5 h-5 text-blue-500 animate-spin" />
-              )}
-              <span className={`font-semibold ${done ? (backupFailed ? 'text-red-600' : 'text-emerald-600') : 'text-blue-600'}`}>
-                {done ? (backupFailed ? '備份失敗' : '備份完成') : '備份中'}
-              </span>
+        <div className={UI_PRO_MAX.cardBody}>
+          <div className="max-w-4xl mx-auto space-y-6">
+            
+            {/* Progress Bar Section */}
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-6">
+              <div className="flex justify-between items-end mb-4">
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    {!done && <Loader2 className="w-4 h-4 text-blue-600 animate-spin" />}
+                    <span className={`font-medium ${done ? (backupFailed ? 'text-red-600' : 'text-emerald-600') : 'text-blue-700'}`}>
+                      {done ? (backupFailed ? '備份中斷' : '備份成功') : '執行中'}
+                    </span>
+                  </div>
+                  {currentMessage && (
+                    <p className="text-sm text-slate-600 font-medium">{currentMessage}</p>
+                  )}
+                </div>
+                <span className="text-3xl font-bold text-slate-800 tabular-nums tracking-tight">{percent}%</span>
+              </div>
+              
+              <div className="h-4 w-full bg-slate-200 rounded-full overflow-hidden shadow-inner">
+                <div
+                  className={`h-full rounded-full transition-all duration-500 ease-out ${backupFailed ? 'bg-red-500' : percent >= 100 ? 'bg-emerald-500' : 'bg-blue-500 relative overflow-hidden'}`}
+                  style={{ width: `${percent}%` }}
+                >
+                  {!done && !backupFailed && (
+                    <div className="absolute inset-0 bg-white/20 animate-[shimmer_2s_infinite]" style={{ backgroundImage: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent)', transform: 'skewX(-20deg)' }} />
+                  )}
+                </div>
+              </div>
             </div>
-            {currentMessage && (
-              <p className="text-sm text-slate-500 mt-1.5">{currentMessage}</p>
-            )}
-          </div>
-          <span className="text-2xl font-bold text-slate-800 tabular-nums">{percent}%</span>
-        </div>
-        
-        <div className="h-3 w-full bg-slate-100 rounded-full overflow-hidden">
-          <div
-            className={`h-full rounded-full transition-all duration-500 ease-out ${backupFailed ? 'bg-red-500' : percent >= 100 ? 'bg-emerald-500' : 'bg-blue-500 relative overflow-hidden'}`}
-            style={{ width: `${percent}%` }}
-          >
-            {!done && !backupFailed && (
-              <div className="absolute inset-0 bg-white/20 animate-[shimmer_2s_infinite]" style={{ backgroundImage: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent)', transform: 'skewX(-20deg)' }} />
-            )}
-          </div>
-        </div>
-      </div>
 
+      {/* Terminal Logs */}
       {operationLogs.length > 0 && (
-        <div className="mb-6 animate-slide-up">
+        <div className="animate-in slide-in-from-top-4">
           <div className="flex items-center gap-2 mb-3">
             <Terminal className="w-5 h-5 text-slate-700" />
             <h3 className="font-semibold text-slate-800">作業日誌</h3>
           </div>
-          <div className="bg-[#0D1117] rounded-2xl p-5 overflow-hidden shadow-inner border border-slate-800">
-            <div ref={logContainerRef} className="font-mono text-[13px] leading-relaxed max-h-[320px] overflow-y-auto custom-scrollbar pr-2 scroll-smooth">
+          <div className={UI_PRO_MAX.logContainer}>
+            <div ref={logContainerRef} className={UI_PRO_MAX.logContent}>
               {operationLogs.map((log, i) => (
                 <div key={i} className="mb-4 last:mb-0">
-                  <div className="text-[#6A9955] mb-1"># {log.label}</div>
-                  <div className="text-slate-300 break-all">
-                    <span className="text-[#569CD6] select-none">$ </span>
-                    <span className="text-[#D4D4D4]">{log.command}</span>
+                  <div className="text-emerald-400/90 font-semibold mb-1"># {log.label}</div>
+                  <div className="text-slate-300 break-all pl-2 border-l-2 border-slate-700">
+                    <span className="text-blue-400 select-none mr-2">$</span>
+                    <span>{log.command}</span>
                   </div>
                   {log.output != null && log.output !== '' && (
-                    <div className="text-[#CE9178] mt-1 whitespace-pre-wrap break-all pl-4 border-l-2 border-slate-700/50">
+                    <div className="text-amber-200/80 mt-1.5 whitespace-pre-wrap break-all pl-6">
                       {log.output}
                     </div>
                   )}
@@ -340,13 +341,14 @@ export function BackupProgress({
         </div>
       )}
 
+      {/* Report */}
       {showReport && (
-        <div className="animate-slide-up">
-          <div className="flex items-center gap-2 mb-3">
-            <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-            <h3 className="font-semibold text-slate-800">完成報告</h3>
+        <div className="animate-in slide-in-from-top-4 pt-4">
+          <div className={UI_PRO_MAX.alertSuccess + " mb-4"}>
+            <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+            <p className="font-medium text-emerald-900">作業報告已產生</p>
           </div>
-          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5">
+          <div className="bg-slate-50 border border-slate-200 rounded-xl p-6 shadow-sm">
             <pre className="whitespace-pre-wrap font-sans text-sm text-slate-700 leading-relaxed">
               {report}
             </pre>
@@ -355,11 +357,14 @@ export function BackupProgress({
       )}
       
       {isComplete && !showReport && report && (
-        <div className="flex items-center justify-center gap-2 text-slate-500 py-4">
-          <Loader2 className="w-4 h-4 animate-spin" />
-          <span className="text-sm">報告產生中...</span>
+        <div className="flex items-center justify-center gap-3 text-slate-500 py-8 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+          <Loader2 className="w-5 h-5 animate-spin" />
+          <span className="font-medium">系統正在彙整備份報告，請稍候...</span>
         </div>
       )}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

@@ -35,25 +35,23 @@ function App() {
       <div className={UI_PRO_MAX.pageWrapper}>
         {/* Header */}
         <header className={UI_PRO_MAX.header}>
-          <div className="flex items-center gap-4">
+          <div className="inline-flex items-center justify-center p-4 bg-white rounded-2xl shadow-sm mb-4">
             <img 
               src={logoUrl}
               alt="CROWN Logo" 
-              className="h-8 object-contain"
+              className="h-10 object-contain ml-2 mr-4"
             />
-            <div className="w-px h-6 bg-slate-300" />
-            <div className="flex items-center gap-2">
-              <DatabaseBackup className="w-6 h-6 text-blue-600" />
-              <div>
-                <h1 className={UI_PRO_MAX.headerTitle}>FineReport 備份管理</h1>
-                <p className={UI_PRO_MAX.headerSubtitle}>企業級自動化備份與還原工具</p>
-              </div>
+            <div className="w-px h-10 bg-slate-200 mx-2" />
+            <div className="px-4">
+              <DatabaseBackup className="w-8 h-8 text-blue-500" />
             </div>
           </div>
+          <h1 className={UI_PRO_MAX.headerTitle}>FineReport 備份管理</h1>
+          <p className={UI_PRO_MAX.headerSubtitle}>企業級自動化備份與還原工具</p>
         </header>
 
         {/* Main Content Area */}
-        <main className="space-y-6">
+        <main className="space-y-6 p4 mt-8">
           {step === 'credentials' && (
             <CredentialForm onDone={onCredentialsDone} />
           )}

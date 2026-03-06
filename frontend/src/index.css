@@ -29,16 +29,44 @@
 }
 
 body {
-  font-family: var(--font-sans);
-  background-color: #fafafa;
-  background-image: 
-    radial-gradient(at 0% 0%, hsla(253,16%,7%,0.03) 0, transparent 50%), 
-    radial-gradient(at 50% 0%, hsla(225,39%,30%,0.03) 0, transparent 50%), 
-    radial-gradient(at 100% 0%, hsla(339,49%,30%,0.03) 0, transparent 50%);
-  background-attachment: fixed;
+  font-family: 'Inter', var(--font-sans);
+  background-color: #f1f5f9; /* slate-100 */
   color: var(--color-surface-900);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* Micro-interactions */
+.btn-ripple {
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-ripple::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  transition: width 0.4s, height 0.4s;
+}
+
+.btn-ripple:active::after {
+  width: 300px;
+  height: 300px;
+}
+
+.input-focus {
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.input-focus:focus {
+  border-color: #3B82F6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
 }
 
 /* Custom Scrollbar for a more premium feel */
