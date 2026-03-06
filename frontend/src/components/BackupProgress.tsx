@@ -142,101 +142,120 @@ export function BackupProgress({
 
   if (!backupId) {
     return (
-      <div className="animate-slide-up">
-        <div className="mb-8">
-          <h2 className={UI_PRO_MAX.h2}>開始備份</h2>
-          <p className={UI_PRO_MAX.pSub}>設定暫存目錄與保留策略後即可開始備份</p>
-        </div>
-
-        <div className={UI_PRO_MAX.sectionCard}>
-          <div>
-            <label className={UI_PRO_MAX.label}>暫存目錄（遠端伺服器）</label>
-            <div className="flex gap-3">
-              <input
-                className={UI_PRO_MAX.input}
-                value={stagingPath}
-                onChange={(e) => setStagingPath(e.target.value)}
-                placeholder="例：/home/crownap/backup/202603"
-              />
-              <button 
-                type="button" 
-                onClick={() => setBrowseStaging(true)}
-                disabled={stagingCreated}
-                className={UI_PRO_MAX.buttonInline}
-              >
-                <FolderOpen className="w-5 h-5" />
-                瀏覽
-              </button>
+      <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <div className={UI_PRO_MAX.card}>
+          <div className={UI_PRO_MAX.cardHeader}>
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-blue-100 text-blue-600 rounded-lg">
+                <Play className="w-5 h-5" />
+              </div>
+              <div>
+                <h2 className={UI_PRO_MAX.cardTitle}>開始備份</h2>
+                <p className={UI_PRO_MAX.pSub}>設定暫存目錄與保留策略後即可開始備份</p>
+              </div>
             </div>
-            <p className="mt-2 text-xs text-slate-400">預設為 /home/使用者/backup/YYYYMM，可修改或點「瀏覽」選擇</p>
           </div>
 
-          <div className="bg-slate-50 rounded-xl p-5 border border-slate-100">
-            <label className="flex items-center gap-3 cursor-pointer group">
-              <div className="relative flex items-center">
-                <input
-                  type="checkbox"
-                  className="peer sr-only"
-                  checked={deleteOldBackup}
-                  onChange={(e) => setDeleteOldBackup(e.target.checked)}
-                />
-                <div className="w-5 h-5 border-2 border-slate-300 rounded peer-checked:bg-blue-600 peer-checked:border-blue-600 transition-colors flex items-center justify-center">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-white opacity-0 peer-checked:opacity-100 transition-opacity" />
+          <div className={UI_PRO_MAX.cardBody}>
+            <div className="space-y-8 max-w-3xl mx-auto">
+              <section>
+                <h3 className={UI_PRO_MAX.sectionTitle}>
+                  <FolderOpen className="w-5 h-5 text-slate-400" />
+                  遠端伺服器暫存目錄
+                </h3>
+                <div className="bg-slate-50 border border-slate-200 rounded-xl p-5">
+                  <div className="flex gap-3">
+                    <input
+                      className={UI_PRO_MAX.input}
+                      value={stagingPath}
+                      onChange={(e) => setStagingPath(e.target.value)}
+                      placeholder="例：/home/crownap/backup/202603"
+                    />
+                    <button 
+                      type="button" 
+                      onClick={() => setBrowseStaging(true)}
+                      disabled={stagingCreated}
+                      className={UI_PRO_MAX.buttonSecondary}
+                    >
+                      <FolderOpen className="w-4 h-4" />
+                      瀏覽
+                    </button>
+                  </div>
+                  <p className="mt-2 text-xs text-slate-500">預設為 /home/使用者/backup/YYYYMM，可修改或點擊瀏覽重新選擇。</p>
                 </div>
-              </div>
-              <span className="text-sm font-medium text-slate-700 group-hover:text-slate-900 transition-colors">
-                {deleteOldBackup ? '刪除遠端舊備份' : '保留遠端備份（不刪除）'}
-              </span>
-            </label>
-            
-            {deleteOldBackup && (
-              <div className="mt-4 ml-8 flex items-center gap-3 animate-slide-up">
-                <CalendarDays className="w-4 h-4 text-slate-400" />
-                <label className="text-sm text-slate-600">保留期：</label>
-                <select
-                  value={retentionMonths || 6}
-                  onChange={(e) => setRetentionMonths(Number(e.target.value))}
-                  className="bg-white border border-slate-200 text-slate-700 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2 outline-none"
-                >
-                  <option value={3}>3 個月</option>
-                  <option value={6}>6 個月</option>
-                  <option value={12}>1 年</option>
-                  <option value={24}>2 年</option>
-                </select>
-              </div>
-            )}
-          </div>
+              </section>
 
-          <div className="flex flex-col sm:flex-row gap-4 pt-2">
-            <button 
-              onClick={createStagingDir} 
-              disabled={stagingLoading || stagingCreated || !stagingPath.trim()}
-              className={stagingCreated ? `${UI_PRO_MAX.buttonSmSecondary} bg-emerald-50 text-emerald-600 border border-emerald-200` : UI_PRO_MAX.buttonSmSecondary}
-            >
-              {stagingLoading ? <><Loader2 className="w-5 h-5 animate-spin"/> 建立中...</> : stagingCreated ? <><CheckCircle2 className="w-5 h-5"/> 暫存目錄已建立</> : <><FolderOpen className="w-5 h-5"/> 建立暫存目錄</>}
-            </button>
-            <button 
-              onClick={startBackup} 
-              disabled={loading || !stagingCreated || !stagingPath.trim() || !nasPath.trim()}
-              className={UI_PRO_MAX.buttonSmPrimary}
-            >
-              {loading ? <><Loader2 className="w-5 h-5 animate-spin"/> 啟動中...</> : <><Play className="w-5 h-5"/> 開始備份</>}
-            </button>
-          </div>
-          
-          {error && (
-            <div className={UI_PRO_MAX.alertErrorInline}>
-              <div className={UI_PRO_MAX.alertErrorIconBox}>
-                <span className="font-bold text-xs">!</span>
+              <section>
+                <h3 className={UI_PRO_MAX.sectionTitle}>
+                  <CalendarDays className="w-5 h-5 text-slate-400" />
+                  備份保留策略
+                </h3>
+                <div className="bg-slate-50 rounded-xl p-5 border border-slate-200">
+                  <label className="flex items-center gap-3 cursor-pointer group">
+                    <div className="relative flex items-center">
+                      <input
+                        type="checkbox"
+                        className="peer sr-only"
+                        checked={deleteOldBackup}
+                        onChange={(e) => setDeleteOldBackup(e.target.checked)}
+                      />
+                      <div className="w-5 h-5 border-2 border-slate-300 rounded peer-checked:bg-blue-600 peer-checked:border-blue-600 transition-colors flex items-center justify-center">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-white opacity-0 peer-checked:opacity-100 transition-opacity" />
+                      </div>
+                    </div>
+                    <span className="text-sm font-medium text-slate-700 group-hover:text-slate-900 transition-colors">
+                      {deleteOldBackup ? '啟用自動清理 (刪除遠端舊備份)' : '保留所有遠端備份（不刪除）'}
+                    </span>
+                  </label>
+                  
+                  {deleteOldBackup && (
+                    <div className="mt-4 ml-8 flex items-center gap-3 animate-in slide-in-from-top-2">
+                      <label className="text-sm text-slate-600">保留期設定：</label>
+                      <select
+                        value={retentionMonths || 6}
+                        onChange={(e) => setRetentionMonths(Number(e.target.value))}
+                        className="bg-white border border-slate-300 text-slate-700 text-sm rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 block p-2 outline-none shadow-sm"
+                      >
+                        <option value={3}>保留 3 個月</option>
+                        <option value={6}>保留 6 個月</option>
+                        <option value={12}>保留 1 年</option>
+                        <option value={24}>保留 2 年</option>
+                      </select>
+                    </div>
+                  )}
+                </div>
+              </section>
+
+              <div className="flex flex-col sm:flex-row gap-4 pt-6 border-t border-slate-200 mt-6">
+                <button 
+                  onClick={createStagingDir} 
+                  disabled={stagingLoading || stagingCreated || !stagingPath.trim()}
+                  className={stagingCreated ? `${UI_PRO_MAX.buttonSmSecondary} bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100` : UI_PRO_MAX.buttonSmSecondary}
+                >
+                  {stagingLoading ? <><Loader2 className="w-5 h-5 animate-spin"/> 建立中...</> : stagingCreated ? <><CheckCircle2 className="w-5 h-5"/> 暫存目錄已準備</> : <><FolderOpen className="w-5 h-5"/> 1. 建立暫存目錄</>}
+                </button>
+                <button 
+                  onClick={startBackup} 
+                  disabled={loading || !stagingCreated || !stagingPath.trim() || !nasPath.trim()}
+                  className={UI_PRO_MAX.buttonSmPrimary}
+                >
+                  {loading ? <><Loader2 className="w-5 h-5 animate-spin"/> 啟動中...</> : <><Play className="w-5 h-5 fill-current"/> 2. 開始執行備份</>}
+                </button>
               </div>
-              <span className="leading-relaxed whitespace-pre-wrap">{error}</span>
+              
+              {error && (
+                <div className={UI_PRO_MAX.alertErrorInline}>
+                  <div className={UI_PRO_MAX.alertErrorIconBox}>!</div>
+                  <span className="leading-relaxed whitespace-pre-wrap">{error}</span>
+                </div>
+              )}
             </div>
-          )}
+          </div>
         </div>
 
         {browseStaging && (
           <PathBrowserModal
-            title="瀏覽遠端暫存目錄"
+            title="選擇遠端暫存目錄"
             currentPath={stagingPath || '/'}
             mode="remote"
             onSelect={(path) => {

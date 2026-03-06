@@ -1,33 +1,80 @@
-export const UI_PRO_MAX = {
-  // Layout & Cards
-  mainCard: "bg-white/80 backdrop-blur-2xl rounded-[2rem] shadow-glass border border-white/60 overflow-visible animate-slide-up",
-  sectionCard: "bg-white border border-slate-100 shadow-sm rounded-2xl p-6",
-  sectionCardInner: "ml-16 space-y-5 bg-white border border-slate-100 shadow-sm rounded-2xl p-6",
-  
-  // Typography
-  h2: "text-2xl font-bold text-slate-900",
-  pSub: "text-slate-500 mt-2",
-  label: "block text-xs font-semibold text-slate-500 mb-2 uppercase tracking-wider",
-  
-  // Inputs
-  input: "w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3.5 text-base text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 focus:bg-white transition-all duration-200",
-  inputSm: "w-full bg-white border border-slate-200 rounded-lg px-3 py-2.5 text-base text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all",
-  inputVerification: "w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-center text-[1.75rem] tracking-[0.4em] font-mono font-medium text-slate-900 placeholder:text-slate-300 focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 focus:bg-white transition-all duration-200 h-14",
-  
-  // Buttons
-  buttonPrimary: "w-full flex justify-center items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white py-4 rounded-xl text-base font-medium transition-all active:scale-[0.98] disabled:opacity-70 disabled:active:scale-100 shadow-md shadow-blue-600/20",
-  buttonDark: "w-full flex justify-center items-center gap-2 bg-slate-900 hover:bg-slate-800 text-white py-4 rounded-xl text-base font-medium transition-all active:scale-[0.98] disabled:opacity-70 disabled:active:scale-100 shadow-md shadow-slate-900/10",
-  buttonSecondary: "w-full flex justify-center items-center gap-2 bg-white hover:bg-slate-50 text-slate-600 border border-slate-200 py-4 rounded-xl text-base font-medium transition-all active:scale-[0.98] disabled:opacity-70 disabled:active:scale-100",
-  buttonInline: "shrink-0 px-5 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 text-base font-medium rounded-xl transition-colors flex items-center gap-2 disabled:opacity-50",
-  buttonSmPrimary: "flex-1 flex justify-center items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white py-4 rounded-xl text-base font-medium transition-all active:scale-[0.98] disabled:opacity-70 disabled:active:scale-100 shadow-md shadow-blue-600/20",
-  buttonSmSecondary: "flex-1 flex justify-center items-center gap-2 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 py-4 rounded-xl text-base font-medium transition-all active:scale-[0.98] disabled:opacity-70 disabled:active:scale-100 shadow-sm",
+import { clsx, type ClassValue } from 'clsx';
+import { twMerge } from 'tailwind-merge';
 
-  // Alerts
-  alertError: "mt-6 p-4 bg-red-50 text-red-600 border border-red-100 rounded-xl text-sm flex items-start gap-3 animate-slide-up",
-  alertErrorInline: "p-4 bg-red-50 text-red-600 border border-red-100 rounded-xl text-sm flex items-start gap-3 animate-slide-up",
-  alertErrorIconBox: "w-5 h-5 rounded-full bg-red-100 text-red-600 flex items-center justify-center shrink-0 mt-0.5",
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
+}
+
+// Enterprise IT Management System Design System (Professional, Clean, Minimalist, High Reliability)
+export const UI_PRO_MAX = {
+  // --- Layout & Structure ---
+  appContainer: "min-h-screen bg-slate-50 text-slate-900 font-sans selection:bg-blue-200 selection:text-blue-900",
+  pageWrapper: "max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10",
   
-  // Icons
-  stepIconActive: "w-12 h-12 rounded-2xl flex items-center justify-center shadow-sm border bg-blue-600 border-blue-600 text-white",
-  stepIconInactive: "w-12 h-12 rounded-2xl flex items-center justify-center shadow-sm border bg-white border-slate-200 text-slate-400",
+  // Header
+  header: "flex items-center justify-between pb-8 mb-8 border-b border-slate-200",
+  headerTitle: "text-2xl font-semibold tracking-tight text-slate-900 flex items-center gap-3",
+  headerSubtitle: "text-sm text-slate-500 font-medium",
+  
+  // Cards / Panels
+  card: "bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden",
+  cardHeader: "px-6 py-5 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between",
+  cardTitle: "text-lg font-semibold text-slate-800",
+  cardBody: "p-6",
+  
+  // Section Headers
+  sectionTitle: "text-base font-semibold text-slate-800 mb-4 flex items-center gap-2",
+  
+  // --- Typography ---
+  h2: "text-2xl font-bold text-slate-900",
+  h3: "text-lg font-semibold text-slate-900",
+  pSub: "text-sm text-slate-500",
+  label: "block text-sm font-medium text-slate-700 mb-1.5",
+  value: "text-base font-medium text-slate-900",
+  
+  // --- Inputs ---
+  input: "w-full bg-white border border-slate-300 rounded-lg px-4 py-2.5 text-base text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition-all shadow-sm",
+  inputSm: "w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition-all shadow-sm",
+  inputVerification: "w-full bg-white border border-slate-300 rounded-lg px-4 py-3 text-center text-3xl tracking-[0.3em] font-mono font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition-all shadow-sm h-16",
+  
+  // --- Buttons Combinations ---
+  buttonPrimary: "inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed px-6 py-3 text-base bg-blue-600 hover:bg-blue-700 text-white shadow-sm focus:ring-blue-500",
+  buttonSmPrimary: "inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed px-4 py-2.5 text-sm bg-blue-600 hover:bg-blue-700 text-white shadow-sm focus:ring-blue-500",
+  buttonSecondary: "inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed px-6 py-3 text-base bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 shadow-sm focus:ring-slate-500",
+  buttonSmSecondary: "inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed px-4 py-2.5 text-sm bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 shadow-sm focus:ring-slate-500",
+  buttonInline: "inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed px-4 py-2.5 text-sm bg-slate-100 hover:bg-slate-200 text-slate-700 border border-transparent",
+  buttonDangerSm: "inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed px-3 py-2 text-sm bg-red-50 hover:bg-red-100 text-red-600 border border-transparent",
+  
+  // --- Alerts & Status ---
+  alertBase: "rounded-lg p-4 flex items-start gap-3 text-sm",
+  alertError: "bg-red-50 text-red-800 border border-red-200 rounded-lg p-4 flex items-start gap-3 text-sm",
+  alertErrorInline: "bg-red-50 text-red-800 border border-red-200 rounded-lg p-3 flex items-start gap-2 text-sm mt-3",
+  alertErrorIconBox: "w-5 h-5 rounded-full bg-red-100 text-red-600 flex items-center justify-center shrink-0",
+  alertInfo: "bg-blue-50 text-blue-800 border border-blue-200 rounded-lg p-4 flex items-start gap-3 text-sm",
+  alertSuccess: "bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-lg p-4 flex items-start gap-3 text-sm",
+  alertWarning: "bg-amber-50 text-amber-800 border border-amber-200 rounded-lg p-4 flex items-start gap-3 text-sm",
+  
+  // --- Badges / Tags ---
+  badge: "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium",
+  badgeGray: "bg-slate-100 text-slate-800",
+  badgeBlue: "bg-blue-100 text-blue-800",
+  badgeGreen: "bg-emerald-100 text-emerald-800",
+  badgeRed: "bg-red-100 text-red-800",
+  
+  // --- Step Indicator ---
+  stepIconActive: "w-10 h-10 rounded-full flex items-center justify-center bg-blue-600 text-white shadow-sm ring-4 ring-blue-50",
+  stepIconInactive: "w-10 h-10 rounded-full flex items-center justify-center bg-slate-100 text-slate-400 border border-slate-200",
+  stepIconCompleted: "w-10 h-10 rounded-full flex items-center justify-center bg-emerald-500 text-white shadow-sm",
+  
+  // --- Data Display ---
+  tableContainer: "border border-slate-200 rounded-lg overflow-hidden",
+  table: "w-full text-sm text-left",
+  th: "bg-slate-50 px-4 py-3 font-medium text-slate-500 border-b border-slate-200",
+  td: "px-4 py-3 border-b border-slate-100 text-slate-700",
+  tr: "hover:bg-slate-50/50 transition-colors",
+  
+  // --- Code & Logs ---
+  codeBlock: "font-mono text-sm bg-slate-900 text-slate-300 p-4 rounded-lg overflow-x-auto",
+  logContainer: "bg-[#0d1117] rounded-lg border border-slate-800 shadow-inner overflow-hidden",
+  logContent: "font-mono text-[13px] leading-relaxed max-h-[400px] overflow-y-auto p-4 custom-scrollbar scroll-smooth text-slate-300",
 };

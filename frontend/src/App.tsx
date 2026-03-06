@@ -31,67 +31,61 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col py-12 px-4 sm:px-6 lg:px-8 font-sans relative overflow-x-hidden overflow-y-auto w-full custom-scrollbar">
-      {/* Premium Background Effects */}
-      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-500/10 rounded-full blur-[100px] pointer-events-none fixed" />
-      <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-purple-500/10 rounded-full blur-[100px] pointer-events-none fixed" />
-      
-      <div className="w-full max-w-3xl relative z-10 mx-auto">
-        {/* Header - Make it shrinkable so it doesn't take up too much space when scrolling */}
-        <div className="text-center mb-8 animate-slide-up shrink-0">
-          <div className="inline-flex items-center justify-center p-3 mb-6 bg-white/80 backdrop-blur-xl rounded-3xl shadow-glass border border-white/50">
+    <div className={UI_PRO_MAX.appContainer}>
+      <div className={UI_PRO_MAX.pageWrapper}>
+        {/* Header */}
+        <header className={UI_PRO_MAX.header}>
+          <div className="flex items-center gap-4">
             <img 
               src={logoUrl}
-              alt="Company Logo" 
-              style={{ height: '48px', marginRight: '16px' }} 
+              alt="CROWN Logo" 
+              className="h-8 object-contain"
             />
-            <div className="w-px h-10 bg-slate-200 mx-2" />
-            <div className="px-4">
-              <DatabaseBackup className="w-8 h-8 text-blue-600" />
+            <div className="w-px h-6 bg-slate-300" />
+            <div className="flex items-center gap-2">
+              <DatabaseBackup className="w-6 h-6 text-blue-600" />
+              <div>
+                <h1 className={UI_PRO_MAX.headerTitle}>FineReport 備份管理</h1>
+                <p className={UI_PRO_MAX.headerSubtitle}>企業級自動化備份與還原工具</p>
+              </div>
             </div>
           </div>
-          <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900">
-            FineReport 備份工具
-          </h1>
-          <p className="mt-3 text-lg text-slate-500 font-medium">安全、高效的自動化備份解決方案</p>
-        </div>
+        </header>
 
-        {/* Main Card */}
-        <div className={UI_PRO_MAX.mainCard} style={{ animationDelay: '0.1s' }}>
-          <div className="p-8 sm:p-12">
-            {step === 'credentials' && (
-              <CredentialForm onDone={onCredentialsDone} />
-            )}
-            {step === 'human' && (
-              <HumanVerification
-                verifiedNasPath={verifiedNasPath}
-                onDone={onHumanDone}
-              />
-            )}
-            {step === 'paths' && (
-              <PathSelector
-                onDone={onPathsDone}
-                sources={sources}
-                setSources={setSources}
-                nasPath={nasPath}
-                setNasPath={setNasPath}
-              />
-            )}
-            {step === 'backup' && (
-              <BackupProgress
-                backupId={backupId}
-                onStart={onBackupStart}
-                sources={sources}
-                nasPath={nasPath}
-              />
-            )}
-          </div>
-        </div>
+        {/* Main Content Area */}
+        <main className="space-y-6">
+          {step === 'credentials' && (
+            <CredentialForm onDone={onCredentialsDone} />
+          )}
+          {step === 'human' && (
+            <HumanVerification
+              verifiedNasPath={verifiedNasPath}
+              onDone={onHumanDone}
+            />
+          )}
+          {step === 'paths' && (
+            <PathSelector
+              onDone={onPathsDone}
+              sources={sources}
+              setSources={setSources}
+              nasPath={nasPath}
+              setNasPath={setNasPath}
+            />
+          )}
+          {step === 'backup' && (
+            <BackupProgress
+              backupId={backupId}
+              onStart={onBackupStart}
+              sources={sources}
+              nasPath={nasPath}
+            />
+          )}
+        </main>
         
         {/* Footer */}
-        <div className="mt-10 text-center text-sm font-medium text-slate-400 tracking-wide">
-          &copy; {new Date().getFullYear()} Crownap. All rights reserved.
-        </div>
+        <footer className="mt-16 text-center text-sm text-slate-500">
+          <p>&copy; {new Date().getFullYear()} Crownap IT Infrastructure. All rights reserved.</p>
+        </footer>
       </div>
     </div>
   );
