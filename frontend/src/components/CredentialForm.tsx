@@ -20,43 +20,61 @@ export function CredentialForm({ onDone }: Props) {
   });
   const [step, setStep] = useState<'ssh' | 'sudo' | 'nas'>('ssh');
   const [error, setError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
   const verifySsh = async () => {
-    setError(''); setLoading(true);
+    setError(''); setFieldErrors({});
+    const errors: Record<string, string> = {};
+    if (!ssh.host.trim()) errors.sshHost = '請輸入主機 IP';
+    if (!ssh.username.trim()) errors.sshUsername = '請輸入使用者名稱';
+    if (!ssh.password) errors.sshPassword = '請輸入連線密碼';
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      return;
+    }
+
+    setLoading(true);
     try {
       const res = await backupApi.verifySsh(ssh);
       if (res.error) { setError(res.message || 'SSH 驗證失敗'); return; }
-      setStep('sudo'); setShowPassword(false);
+      setStep('sudo'); setShowPassword(false); setFieldErrors({});
     } catch (err) {
       setError(err instanceof Error ? err.message : 'SSH 連線失敗');
     } finally { setLoading(false); }
   };
 
   const verifySudo = async () => {
-    setError(''); setLoading(true);
+    setError(''); setFieldErrors({});
+    if (!sudoPwd) {
+      setFieldErrors({ sudoPwd: '請輸入 Sudo 密碼' });
+      return;
+    }
+
+    setLoading(true);
     try {
       const res = await backupApi.verifySudo({ sudoPassword: sudoPwd });
       if (res.error) { setError(res.message || 'sudo 驗證失敗'); return; }
-      setStep('nas'); setShowPassword(false);
+      setStep('nas'); setShowPassword(false); setFieldErrors({});
     } catch (err) {
       setError(err instanceof Error ? err.message : 'sudo 驗證失敗');
     } finally { setLoading(false); }
   };
 
   const verifyNas = async () => {
-    // 檢查是否有輸入使用者帳號
-    if (!nas.username.trim()) {
-      setError('請輸入使用者帳號');
-      return;
-    }
-    if (!nas.password) {
-      setError('請輸入密碼');
+    setError(''); setFieldErrors({});
+    const errors: Record<string, string> = {};
+    if (!nas.host.trim()) errors.nasHost = '請輸入 NAS 主機 IP';
+    if (!nas.username.trim()) errors.nasUsername = '請輸入使用者帳號';
+    if (!nas.password) errors.nasPassword = '請輸入密碼';
+    if (!nas.share.trim()) errors.nasShare = '請輸入共用資料夾';
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
       return;
     }
 
-    setError(''); setLoading(true);
+    setLoading(true);
     try {
       const res = await backupApi.verifyNas({
         ...nas, share: nas.share || undefined, path: nas.path || undefined,
@@ -95,27 +113,30 @@ export function CredentialForm({ onDone }: Props) {
                 </div>
                 
                 {step === 'ssh' && (
-                  <div className="ml-14 space-y-5 bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
+                  <div className="ml-14 space-y-5 bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                       <div>
                         <label className={UI_PRO_MAX.label}>主機 IP (Host)</label>
-                        <input className={UI_PRO_MAX.input} value={ssh.host} onChange={e => setSsh(s => ({ ...s, host: e.target.value }))} placeholder="10.x.x.x" />
+                        <input className={fieldErrors.sshHost ? UI_PRO_MAX.inputError : UI_PRO_MAX.input} value={ssh.host} onChange={e => { setSsh(s => ({ ...s, host: e.target.value })); setFieldErrors(err => ({...err, sshHost: ''}))}} placeholder="10.x.x.x" />
+                        {fieldErrors.sshHost && <div className={UI_PRO_MAX.errorText}>{fieldErrors.sshHost}</div>}
                       </div>
                       <div>
                         <label className={UI_PRO_MAX.label}>使用者名稱 (User)</label>
-                        <input className={UI_PRO_MAX.input} value={ssh.username} onChange={e => setSsh(s => ({ ...s, username: e.target.value }))} placeholder="root" />
+                        <input className={fieldErrors.sshUsername ? UI_PRO_MAX.inputError : UI_PRO_MAX.input} value={ssh.username} onChange={e => { setSsh(s => ({ ...s, username: e.target.value })); setFieldErrors(err => ({...err, sshUsername: ''}))}} placeholder="root" />
+                        {fieldErrors.sshUsername && <div className={UI_PRO_MAX.errorText}>{fieldErrors.sshUsername}</div>}
                       </div>
                     </div>
                     <div>
                       <label className={UI_PRO_MAX.label}>連線密碼 (Password)</label>
                       <div className="relative">
-                        <input type={showPassword ? 'text' : 'password'} className={UI_PRO_MAX.input} value={ssh.password} onChange={e => setSsh(s => ({ ...s, password: e.target.value }))} placeholder="••••••••" />
+                        <input type={showPassword ? 'text' : 'password'} className={fieldErrors.sshPassword ? UI_PRO_MAX.inputError : UI_PRO_MAX.input} value={ssh.password} onChange={e => { setSsh(s => ({ ...s, password: e.target.value })); setFieldErrors(err => ({...err, sshPassword: ''}))}} placeholder="••••••••" />
                         <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors">
                           {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                         </button>
                       </div>
+                      {fieldErrors.sshPassword && <div className={UI_PRO_MAX.errorText}>{fieldErrors.sshPassword}</div>}
                     </div>
-                    <div className="pt-2">
+                    <div className="pt-4">
                       <button onClick={verifySsh} disabled={loading} className={`${UI_PRO_MAX.buttonPrimary} w-full`}>
                         {loading ? <><Loader2 className="w-5 h-5 animate-spin"/> 驗證中...</> : '驗證 SSH 連線'}
                       </button>
@@ -134,7 +155,7 @@ export function CredentialForm({ onDone }: Props) {
                 </div>
 
                 {step === 'sudo' && (
-                  <div className="ml-14 space-y-5 bg-white border border-slate-200 rounded-xl p-5 shadow-sm animate-in fade-in slide-in-from-top-4">
+                  <div className="ml-14 space-y-5 bg-white border border-slate-200 rounded-xl p-6 shadow-sm animate-in fade-in slide-in-from-top-4">
                     <div className={UI_PRO_MAX.alertWarning}>
                       <Shield className="w-5 h-5 text-amber-600 shrink-0" />
                       <div>
@@ -145,13 +166,14 @@ export function CredentialForm({ onDone }: Props) {
                     <div>
                       <label className={UI_PRO_MAX.label}>Sudo 密碼</label>
                       <div className="relative">
-                        <input type={showPassword ? 'text' : 'password'} className={UI_PRO_MAX.input} value={sudoPwd} onChange={e => setSudoPwd(e.target.value)} placeholder="••••••••" autoFocus />
+                        <input type={showPassword ? 'text' : 'password'} className={fieldErrors.sudoPwd ? UI_PRO_MAX.inputError : UI_PRO_MAX.input} value={sudoPwd} onChange={e => { setSudoPwd(e.target.value); setFieldErrors(err => ({...err, sudoPwd: ''}))}} placeholder="••••••••" autoFocus />
                         <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors">
                           {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                         </button>
                       </div>
+                      {fieldErrors.sudoPwd && <div className={UI_PRO_MAX.errorText}>{fieldErrors.sudoPwd}</div>}
                     </div>
-                    <div className="pt-2">
+                    <div className="pt-4">
                       <button onClick={verifySudo} disabled={loading} className={`${UI_PRO_MAX.buttonPrimary} w-full`}>
                         {loading ? <><Loader2 className="w-5 h-5 animate-spin"/> 驗證中...</> : '驗證 Root 權限'}
                       </button>
@@ -170,28 +192,47 @@ export function CredentialForm({ onDone }: Props) {
                 </div>
 
                 {step === 'nas' && (
-                  <div className="ml-14 space-y-5 bg-white border border-slate-200 rounded-xl p-5 shadow-sm animate-in fade-in slide-in-from-top-4">
+                  <div className="ml-14 space-y-5 bg-white border border-slate-200 rounded-xl p-6 shadow-sm animate-in fade-in slide-in-from-top-4">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                      <div><label className={UI_PRO_MAX.label}>主機 IP (Host)</label><input className={UI_PRO_MAX.input} value={nas.host} onChange={e => setNas(s => ({ ...s, host: e.target.value }))} placeholder="10.x.x.x" /></div>
-                      <div><label className={UI_PRO_MAX.label}>網域 (Domain)</label><input className={UI_PRO_MAX.input} value={nas.domain} placeholder="WORKGROUP" onChange={e => setNas(s => ({ ...s, domain: e.target.value }))} /></div>
+                      <div>
+                        <label className={UI_PRO_MAX.label}>主機 IP (Host)</label>
+                        <input className={fieldErrors.nasHost ? UI_PRO_MAX.inputError : UI_PRO_MAX.input} value={nas.host} onChange={e => { setNas(s => ({ ...s, host: e.target.value })); setFieldErrors(err => ({...err, nasHost: ''}))}} placeholder="10.x.x.x" />
+                        {fieldErrors.nasHost && <div className={UI_PRO_MAX.errorText}>{fieldErrors.nasHost}</div>}
+                      </div>
+                      <div>
+                        <label className={UI_PRO_MAX.label}>網域 (Domain)</label>
+                        <input className={UI_PRO_MAX.input} value={nas.domain} placeholder="WORKGROUP" onChange={e => setNas(s => ({ ...s, domain: e.target.value }))} />
+                      </div>
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                      <div><label className={UI_PRO_MAX.label}>使用者名稱 (User)</label><input className={UI_PRO_MAX.input} value={nas.username} onChange={e => setNas(s => ({ ...s, username: e.target.value }))} placeholder="admin" /></div>
+                      <div>
+                        <label className={UI_PRO_MAX.label}>使用者名稱 (User)</label>
+                        <input className={fieldErrors.nasUsername ? UI_PRO_MAX.inputError : UI_PRO_MAX.input} value={nas.username} onChange={e => { setNas(s => ({ ...s, username: e.target.value })); setFieldErrors(err => ({...err, nasUsername: ''}))}} placeholder="admin" />
+                        {fieldErrors.nasUsername && <div className={UI_PRO_MAX.errorText}>{fieldErrors.nasUsername}</div>}
+                      </div>
                       <div>
                         <label className={UI_PRO_MAX.label}>密碼 (Password)</label>
                         <div className="relative">
-                          <input type={showPassword ? 'text' : 'password'} className={UI_PRO_MAX.input} value={nas.password} onChange={e => setNas(s => ({ ...s, password: e.target.value }))} placeholder="••••••••" />
+                          <input type={showPassword ? 'text' : 'password'} className={fieldErrors.nasPassword ? UI_PRO_MAX.inputError : UI_PRO_MAX.input} value={nas.password} onChange={e => { setNas(s => ({ ...s, password: e.target.value })); setFieldErrors(err => ({...err, nasPassword: ''}))}} placeholder="••••••••" />
                           <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors">
                             {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                           </button>
                         </div>
+                        {fieldErrors.nasPassword && <div className={UI_PRO_MAX.errorText}>{fieldErrors.nasPassword}</div>}
                       </div>
                     </div>
                     <div className="grid grid-cols-1 gap-5 pt-5 border-t border-slate-100 mt-2">
-                      <div><label className={UI_PRO_MAX.label}>共用資料夾 (Share)</label><input className={UI_PRO_MAX.input} value={nas.share} onChange={e => setNas(s => ({ ...s, share: e.target.value }))} placeholder="Backup" /></div>
-                      <div><label className={UI_PRO_MAX.label}>目標路徑 (Path)</label><input className={UI_PRO_MAX.input} value={nas.path} onChange={e => setNas(s => ({ ...s, path: e.target.value }))} placeholder="path/to/folder" /></div>
+                      <div>
+                        <label className={UI_PRO_MAX.label}>共用資料夾 (Share)</label>
+                        <input className={fieldErrors.nasShare ? UI_PRO_MAX.inputError : UI_PRO_MAX.input} value={nas.share} onChange={e => { setNas(s => ({ ...s, share: e.target.value })); setFieldErrors(err => ({...err, nasShare: ''}))}} placeholder="Backup" />
+                        {fieldErrors.nasShare && <div className={UI_PRO_MAX.errorText}>{fieldErrors.nasShare}</div>}
+                      </div>
+                      <div>
+                        <label className={UI_PRO_MAX.label}>目標路徑 (Path)</label>
+                        <input className={UI_PRO_MAX.input} value={nas.path} onChange={e => setNas(s => ({ ...s, path: e.target.value }))} placeholder="path/to/folder" />
+                      </div>
                     </div>
-                    <div className="pt-2">
+                    <div className="pt-4">
                       <button onClick={verifyNas} disabled={loading} className={`${UI_PRO_MAX.buttonPrimary} w-full bg-slate-900 hover:bg-slate-800 focus:ring-slate-900`}>
                         {loading ? <><Loader2 className="w-5 h-5 animate-spin"/> 驗證中...</> : '完成驗證並繼續'}
                       </button>

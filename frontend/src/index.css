@@ -29,7 +29,7 @@
 }
 
 body {
-  font-family: 'Inter', var(--font-sans);
+  font-family: 'Poppins', 'Noto Sans TC', var(--font-sans);
   background-color: #f1f5f9; /* slate-100 */
   color: var(--color-surface-900);
   -webkit-font-smoothing: antialiased;

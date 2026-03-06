@@ -26,23 +26,27 @@ export const UI_PRO_MAX = {
   sectionTitle: "text-slate-400 text-sm uppercase tracking-widest mb-8 flex items-center gap-2",
   
   // --- Typography ---
-  h2: "text-2xl font-bold text-slate-900",
-  h3: "text-lg font-semibold text-slate-900",
+  h2: "text-2xl font-bold text-slate-900 tracking-tight",
+  h3: "text-lg font-bold text-slate-800 tracking-tight",
   pSub: "text-sm text-slate-500",
-  label: "block text-sm font-medium text-slate-700 mb-1.5",
+  label: "block text-sm font-semibold text-slate-700 mb-2",
   value: "text-base font-medium text-slate-900",
   
   // --- Inputs ---
-  input: "w-full bg-white border-2 border-slate-200 rounded-lg px-4 py-3 text-base text-slate-900 placeholder:text-slate-400 outline-none transition-all duration-200 focus:border-blue-500 focus:ring-[3px] focus:ring-blue-500/20",
-  inputSm: "w-full bg-white border-2 border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 outline-none transition-all duration-200 focus:border-blue-500 focus:ring-[3px] focus:ring-blue-500/20",
-  inputVerification: "w-full bg-white border-2 border-slate-200 rounded-lg px-4 py-3 text-center text-3xl tracking-[0.3em] font-mono font-bold text-slate-900 outline-none transition-all duration-200 focus:border-blue-500 focus:ring-[3px] focus:ring-blue-500/20 h-16",
+  input: "w-full bg-white border-2 border-slate-200 rounded-xl px-4 py-3 text-base text-slate-900 placeholder:text-slate-400 outline-none transition-all duration-300 focus:border-blue-500 focus:ring-[4px] focus:ring-blue-500/15 hover:border-slate-300",
+  inputError: "w-full bg-red-50/30 border-2 border-red-300 rounded-xl px-4 py-3 text-base text-slate-900 placeholder:text-red-300 outline-none transition-all duration-300 focus:border-red-500 focus:ring-[4px] focus:ring-red-500/15 hover:border-red-400",
+  inputSm: "w-full bg-white border-2 border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 outline-none transition-all duration-300 focus:border-blue-500 focus:ring-[4px] focus:ring-blue-500/15 hover:border-slate-300",
+  inputSmError: "w-full bg-red-50/30 border-2 border-red-300 rounded-lg px-3 py-2 text-sm text-slate-900 placeholder:text-red-300 outline-none transition-all duration-300 focus:border-red-500 focus:ring-[4px] focus:ring-red-500/15 hover:border-red-400",
+  inputVerification: "w-full bg-white border-2 border-slate-200 rounded-xl px-4 py-3 text-center text-3xl tracking-[0.3em] font-mono font-bold text-slate-900 outline-none transition-all duration-300 focus:border-blue-500 focus:ring-[4px] focus:ring-blue-500/15 h-16 hover:border-slate-300",
+  
+  errorText: "text-sm font-medium text-red-500 mt-1.5 flex items-center gap-1.5 animate-in slide-in-from-top-1",
   
   // --- Buttons Combinations ---
-  buttonPrimary: "btn-ripple inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-transform duration-200 px-6 py-3 text-base bg-blue-500 hover:bg-blue-600 active:scale-[0.98] text-white cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100",
-  buttonSmPrimary: "btn-ripple inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-transform duration-200 px-4 py-2.5 text-sm bg-blue-500 hover:bg-blue-600 active:scale-[0.98] text-white cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100",
-  buttonSecondary: "inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-all duration-200 px-6 py-3 text-base bg-slate-200 hover:bg-slate-300 active:bg-slate-400 active:scale-[0.98] text-slate-700 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100",
-  buttonSmSecondary: "inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-all duration-200 px-4 py-2.5 text-sm bg-slate-200 hover:bg-slate-300 active:bg-slate-400 active:scale-[0.98] text-slate-700 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100",
-  buttonInline: "inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-all duration-200 px-4 py-2.5 text-sm bg-slate-100 hover:bg-slate-200 active:bg-slate-300 active:scale-[0.98] text-slate-700 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100",
+  buttonPrimary: "btn-ripple inline-flex items-center justify-center gap-2 rounded-xl font-semibold transition-transform duration-200 px-6 py-3.5 text-base bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 shadow-sm",
+  buttonSmPrimary: "btn-ripple inline-flex items-center justify-center gap-2 rounded-xl font-semibold transition-transform duration-200 px-4 py-2.5 text-sm bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 shadow-sm",
+  buttonSecondary: "btn-ripple inline-flex items-center justify-center gap-2 rounded-xl font-semibold transition-all duration-200 px-6 py-3.5 text-base bg-slate-100 hover:bg-slate-200 active:bg-slate-300 active:scale-[0.98] text-slate-700 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100",
+  buttonSmSecondary: "btn-ripple inline-flex items-center justify-center gap-2 rounded-xl font-semibold transition-all duration-200 px-4 py-2.5 text-sm bg-slate-100 hover:bg-slate-200 active:bg-slate-300 active:scale-[0.98] text-slate-700 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100",
+  buttonInline: "inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-all duration-200 px-4 py-2.5 text-sm bg-slate-50 hover:bg-slate-100 active:bg-slate-200 active:scale-[0.98] text-slate-700 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100",
   buttonDangerSm: "inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-all duration-200 px-3 py-2 text-sm bg-red-50 hover:bg-red-100 active:bg-red-200 active:scale-[0.98] text-red-600 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100",
   
   // --- Alerts & Status ---
