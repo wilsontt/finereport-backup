@@ -4,6 +4,7 @@
 import { useState, useEffect } from 'react';
 import { backupApi } from '../api/backup';
 import { ShieldCheck, RefreshCw, Loader2, CheckCircle2 } from 'lucide-react';
+import { UI_PRO_MAX } from '../styles/designSystem';
 
 interface Props {
   verifiedNasPath?: string;
@@ -52,17 +53,15 @@ export function HumanVerification({ verifiedNasPath, onDone }: Props) {
     setVerified(true);
   };
 
-  const InputStyle = "w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-center text-[1.75rem] tracking-[0.4em] font-mono font-medium text-slate-900 placeholder:text-slate-300 focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 focus:bg-white transition-all duration-200 h-14";
-
   if (verified) {
     return (
       <div className="animate-slide-up">
         <div className="mb-8">
-          <h2 className="text-2xl font-bold text-slate-900">安全驗證</h2>
-          <p className="text-slate-500 mt-2">驗證已完成，您可以繼續進行下一步</p>
+          <h2 className={UI_PRO_MAX.h2}>安全驗證</h2>
+          <p className={UI_PRO_MAX.pSub}>驗證已完成，您可以繼續進行下一步</p>
         </div>
 
-        <div className="bg-white border border-slate-100 shadow-sm rounded-2xl p-8 text-center">
+        <div className={`${UI_PRO_MAX.sectionCard} text-center`}>
           <div className="w-16 h-16 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-4">
             <CheckCircle2 className="w-8 h-8" />
           </div>
@@ -70,14 +69,14 @@ export function HumanVerification({ verifiedNasPath, onDone }: Props) {
           
           {verifiedNasPath && (
             <div className="mt-6 p-4 bg-slate-50 border border-slate-100 rounded-xl text-left">
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">NAS 驗證路徑</p>
+              <p className={UI_PRO_MAX.label}>NAS 驗證路徑</p>
               <code className="block text-sm text-slate-800 break-all font-mono bg-white p-3 rounded-lg border border-slate-200">
                 {verifiedNasPath}
               </code>
             </div>
           )}
 
-          <button onClick={onDone} className="w-full mt-8 flex justify-center items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white py-4 rounded-xl text-base font-medium transition-all active:scale-[0.98] shadow-md shadow-blue-600/20">
+          <button onClick={onDone} className={`${UI_PRO_MAX.buttonPrimary} mt-8`}>
             繼續設定備份目錄
           </button>
         </div>
@@ -88,11 +87,11 @@ export function HumanVerification({ verifiedNasPath, onDone }: Props) {
   return (
     <div className="animate-slide-up">
       <div className="mb-8">
-        <h2 className="text-2xl font-bold text-slate-900">安全驗證</h2>
-        <p className="text-slate-500 mt-2">請輸入下方顯示的 4 碼數字以確認您的身分</p>
+        <h2 className={UI_PRO_MAX.h2}>安全驗證</h2>
+        <p className={UI_PRO_MAX.pSub}>請輸入下方顯示的 4 碼數字以確認您的身分</p>
       </div>
 
-      <div className="bg-white border border-slate-100 shadow-sm rounded-2xl p-8">
+      <div className={UI_PRO_MAX.sectionCard}>
         <div className="flex flex-col items-center max-w-xs mx-auto">
           <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mb-6">
             <ShieldCheck className="w-6 h-6" />
@@ -119,15 +118,15 @@ export function HumanVerification({ verifiedNasPath, onDone }: Props) {
               maxLength={4}
               value={code}
               onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
-              className={InputStyle}
+              className={UI_PRO_MAX.inputVerification}
               autoFocus
             />
             
-            <button onClick={verify} disabled={loading || code.length !== 4} className="w-full flex justify-center items-center gap-2 bg-slate-900 hover:bg-slate-800 text-white py-4 rounded-xl text-base font-medium transition-all active:scale-[0.98] disabled:opacity-70 disabled:active:scale-100 shadow-md shadow-slate-900/10">
+            <button onClick={verify} disabled={loading || code.length !== 4} className={UI_PRO_MAX.buttonDark}>
               {loading ? <><Loader2 className="w-5 h-5 animate-spin"/> 驗證中...</> : '確認驗證'}
             </button>
             
-            <button onClick={fetchCode} disabled={loading} className="w-full flex justify-center items-center gap-2 bg-white hover:bg-slate-50 text-slate-600 border border-slate-200 py-4 rounded-xl text-base font-medium transition-all active:scale-[0.98] disabled:opacity-70 disabled:active:scale-100">
+            <button onClick={fetchCode} disabled={loading} className={UI_PRO_MAX.buttonSecondary}>
               <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
               重新取得驗證碼
             </button>
@@ -136,8 +135,8 @@ export function HumanVerification({ verifiedNasPath, onDone }: Props) {
       </div>
 
       {error && (
-        <div className="mt-6 p-4 bg-red-50 text-red-600 border border-red-100 rounded-xl text-sm flex items-start gap-3 animate-slide-up">
-          <div className="w-5 h-5 rounded-full bg-red-100 text-red-600 flex items-center justify-center shrink-0 mt-0.5">
+        <div className={UI_PRO_MAX.alertError}>
+          <div className={UI_PRO_MAX.alertErrorIconBox}>
             <span className="font-bold text-xs">!</span>
           </div>
           <span className="leading-relaxed">{error}</span>

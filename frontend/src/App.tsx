@@ -9,6 +9,7 @@ import { BackupProgress } from './components/BackupProgress';
 import { DatabaseBackup } from 'lucide-react';
 import type { BackupSource } from './types';
 import logoUrl from './assets/CROWN_logo.png';
+import { UI_PRO_MAX } from './styles/designSystem';
 
 type Step = 'credentials' | 'human' | 'paths' | 'backup';
 
@@ -56,7 +57,7 @@ function App() {
         </div>
 
         {/* Main Card */}
-        <div className="bg-white/80 backdrop-blur-2xl rounded-[2rem] shadow-glass border border-white/60 overflow-visible animate-slide-up" style={{ animationDelay: '0.1s' }}>
+        <div className={UI_PRO_MAX.mainCard} style={{ animationDelay: '0.1s' }}>
           <div className="p-8 sm:p-12">
             {step === 'credentials' && (
               <CredentialForm onDone={onCredentialsDone} />

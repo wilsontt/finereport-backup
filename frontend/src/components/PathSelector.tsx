@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { backupApi } from '../api/backup';
 import { Search, Plus, FolderOpen, Edit2, Trash2, CheckCircle2, XCircle, HardDrive, Server, ArrowRight, Loader2 } from 'lucide-react';
 import type { BackupSource } from '../types';
+import { UI_PRO_MAX } from '../styles/designSystem';
 
 interface Props {
   onDone: () => void;
@@ -166,13 +167,11 @@ export function PathSelector({
     return current || (isRemoteBrowse ? '/' : '');
   };
 
-  const InputStyle = "w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-base text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 focus:bg-white transition-all duration-200";
-
   return (
     <div className="animate-slide-up relative">
       <div className="mb-8">
-        <h2 className="text-2xl font-bold text-slate-900">確認備份目錄</h2>
-        <p className="text-slate-500 mt-2">請確認遠端來源與 NAS 儲存路徑</p>
+        <h2 className={UI_PRO_MAX.h2}>確認備份目錄</h2>
+        <p className={UI_PRO_MAX.pSub}>請確認遠端來源與 NAS 儲存路徑</p>
       </div>
 
       <div className={`space-y-8 transition-all duration-300 ${isBrowsing ? 'opacity-50 pointer-events-none blur-[2px]' : ''}`}>
@@ -189,7 +188,7 @@ export function PathSelector({
           <div>
             <div className="flex gap-3">
               <input
-                className={InputStyle}
+                className={UI_PRO_MAX.input}
                 placeholder="例：4.備份記錄/KE/2026/FineReport"
                 value={nasPath}
                 onChange={(e) => setNasPath(e.target.value)}
@@ -198,7 +197,7 @@ export function PathSelector({
                 type="button" 
                 onClick={() => setBrowseTarget('nasPath')} 
                 disabled={isBrowsing}
-                className="shrink-0 px-5 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 text-base font-medium rounded-xl transition-colors flex items-center gap-2"
+                className={UI_PRO_MAX.buttonInline}
               >
                 <FolderOpen className="w-5 h-5" />
                 瀏覽
@@ -357,8 +356,8 @@ export function PathSelector({
       </div>
 
       {error && (
-        <div className="mt-6 p-4 bg-red-50 text-red-600 border border-red-100 rounded-xl text-sm flex items-start gap-3 animate-slide-up">
-          <div className="w-5 h-5 rounded-full bg-red-100 text-red-600 flex items-center justify-center shrink-0 mt-0.5">
+        <div className={UI_PRO_MAX.alertError}>
+          <div className={UI_PRO_MAX.alertErrorIconBox}>
             <span className="font-bold text-xs">!</span>
           </div>
           <span className="leading-relaxed">{error}</span>
@@ -391,8 +390,6 @@ function PathInputWithBrowse({
   placeholder?: string;
   onBrowse?: () => void;
 }) {
-  const InputStyle = "w-full bg-white border border-slate-200 rounded-lg px-3 py-2.5 text-base text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all";
-  
   return (
     <div>
       <label className="block text-xs font-semibold text-slate-500 mb-1.5">{label}</label>
@@ -401,7 +398,7 @@ function PathInputWithBrowse({
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
-          className={InputStyle}
+          className={UI_PRO_MAX.inputSm}
         />
         {onBrowse && (
           <button 
@@ -580,8 +577,6 @@ export function PathBrowserModal({
     load(path);
   };
 
-  const InputStyle = "w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 text-base text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all";
-
   return (
     <div
       className="fixed inset-0 z-[1000] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 animate-in fade-in duration-200"
@@ -608,7 +603,7 @@ export function PathBrowserModal({
               value={path}
               onChange={(e) => setPath(e.target.value)}
               placeholder={mode === 'remote' ? '/' : '路徑'}
-              className={InputStyle}
+              className={UI_PRO_MAX.inputSm}
             />
           </div>
           
@@ -620,7 +615,7 @@ export function PathBrowserModal({
                   value={newDirName}
                   onChange={(e) => { setNewDirName(e.target.value); setCreateErr(''); }}
                   placeholder="輸入新目錄名稱"
-                  className={InputStyle}
+                  className={UI_PRO_MAX.inputSm}
                   onKeyDown={(e) => e.key === 'Enter' && handleCreateDir()}
                 />
                 <button 

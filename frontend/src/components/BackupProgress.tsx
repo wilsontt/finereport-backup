@@ -6,6 +6,7 @@ import { backupApi } from '../api/backup';
 import { PathBrowserModal } from './PathSelector';
 import { CheckCircle2, XCircle, Loader2, Terminal, FolderOpen, CalendarDays, Play } from 'lucide-react';
 import type { BackupSource } from '../types';
+import { UI_PRO_MAX } from '../styles/designSystem';
 
 interface OperationLog {
   label: string;
@@ -139,23 +140,20 @@ export function BackupProgress({
     return () => es.close();
   }, [backupId]);
 
-  const InputStyle = "w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-base text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 focus:bg-white transition-all duration-200";
-  const LabelStyle = "block text-xs font-semibold text-slate-500 mb-2 uppercase tracking-wider";
-
   if (!backupId) {
     return (
       <div className="animate-slide-up">
         <div className="mb-8">
-          <h2 className="text-2xl font-bold text-slate-900">開始備份</h2>
-          <p className="text-slate-500 mt-2">設定暫存目錄與保留策略後即可開始備份</p>
+          <h2 className={UI_PRO_MAX.h2}>開始備份</h2>
+          <p className={UI_PRO_MAX.pSub}>設定暫存目錄與保留策略後即可開始備份</p>
         </div>
 
-        <div className="space-y-6 bg-white border border-slate-100 shadow-sm rounded-2xl p-6">
+        <div className={UI_PRO_MAX.sectionCard}>
           <div>
-            <label className={LabelStyle}>暫存目錄（遠端伺服器）</label>
+            <label className={UI_PRO_MAX.label}>暫存目錄（遠端伺服器）</label>
             <div className="flex gap-3">
               <input
-                className={InputStyle}
+                className={UI_PRO_MAX.input}
                 value={stagingPath}
                 onChange={(e) => setStagingPath(e.target.value)}
                 placeholder="例：/home/crownap/backup/202603"
@@ -164,7 +162,7 @@ export function BackupProgress({
                 type="button" 
                 onClick={() => setBrowseStaging(true)}
                 disabled={stagingCreated}
-                className="shrink-0 px-5 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 text-base font-medium rounded-xl transition-colors disabled:opacity-50 flex items-center gap-2"
+                className={UI_PRO_MAX.buttonInline}
               >
                 <FolderOpen className="w-5 h-5" />
                 瀏覽
@@ -213,22 +211,22 @@ export function BackupProgress({
             <button 
               onClick={createStagingDir} 
               disabled={stagingLoading || stagingCreated || !stagingPath.trim()}
-              className={`flex-1 flex justify-center items-center gap-2 py-4 rounded-xl text-base font-medium transition-all active:scale-[0.98] disabled:opacity-70 disabled:active:scale-100 ${stagingCreated ? 'bg-emerald-50 text-emerald-600 border border-emerald-200' : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 shadow-sm'}`}
+              className={stagingCreated ? `${UI_PRO_MAX.buttonSmSecondary} bg-emerald-50 text-emerald-600 border border-emerald-200` : UI_PRO_MAX.buttonSmSecondary}
             >
               {stagingLoading ? <><Loader2 className="w-5 h-5 animate-spin"/> 建立中...</> : stagingCreated ? <><CheckCircle2 className="w-5 h-5"/> 暫存目錄已建立</> : <><FolderOpen className="w-5 h-5"/> 建立暫存目錄</>}
             </button>
             <button 
               onClick={startBackup} 
               disabled={loading || !stagingCreated || !stagingPath.trim() || !nasPath.trim()}
-              className="flex-1 flex justify-center items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white py-4 rounded-xl text-base font-medium transition-all active:scale-[0.98] disabled:opacity-70 disabled:active:scale-100 shadow-md shadow-blue-600/20"
+              className={UI_PRO_MAX.buttonSmPrimary}
             >
               {loading ? <><Loader2 className="w-5 h-5 animate-spin"/> 啟動中...</> : <><Play className="w-5 h-5"/> 開始備份</>}
             </button>
           </div>
           
           {error && (
-            <div className="p-4 bg-red-50 text-red-600 border border-red-100 rounded-xl text-sm flex items-start gap-3 animate-slide-up">
-              <div className="w-5 h-5 rounded-full bg-red-100 text-red-600 flex items-center justify-center shrink-0 mt-0.5">
+            <div className={UI_PRO_MAX.alertErrorInline}>
+              <div className={UI_PRO_MAX.alertErrorIconBox}>
                 <span className="font-bold text-xs">!</span>
               </div>
               <span className="leading-relaxed whitespace-pre-wrap">{error}</span>
