@@ -59,7 +59,20 @@ export function PathSelector({
   }, []);
 
   const handleAddSource = async () => {
-    if (!addLabel.trim() || !addSourcePath.trim() || !addDestPath.trim()) return;
+    if (!addLabel.trim()) {
+      setError('新增失敗：請輸入「標籤」名稱（例如：自訂範本）');
+      return;
+    }
+    if (!addSourcePath.trim()) {
+      setError('新增失敗：請選擇或輸入「來源路徑」');
+      return;
+    }
+    if (!addDestPath.trim()) {
+      setError('新增失敗：請選擇或輸入「目的路徑」');
+      return;
+    }
+    setError('');
+    
     const res = await backupApi.addSource({
       label: addLabel,
       sourcePath: addSourcePath,
@@ -90,7 +103,21 @@ export function PathSelector({
   };
 
   const updateSource = () => {
-    if (!editingSource || !editLabel.trim() || !editSourcePath.trim() || !editDestPath.trim()) return;
+    if (!editingSource) return;
+    if (!editLabel.trim()) {
+      setError('儲存失敗：請輸入「標籤」名稱');
+      return;
+    }
+    if (!editSourcePath.trim()) {
+      setError('儲存失敗：請選擇或輸入「來源路徑」');
+      return;
+    }
+    if (!editDestPath.trim()) {
+      setError('儲存失敗：請選擇或輸入「目的路徑」');
+      return;
+    }
+    setError('');
+    
     setSources(sources.map((s) =>
       s.id === editingSource.id
         ? { ...s, label: editLabel.trim(), sourcePath: editSourcePath.trim(), destPath: editDestPath.trim() }
@@ -561,10 +588,10 @@ export function PathBrowserModal({
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
       <div
-        className="bg-white rounded-2xl w-full max-w-lg shadow-2xl shadow-slate-900/20 flex flex-col max-h-[85vh] animate-in zoom-in-95 duration-200"
+        className="bg-white rounded-2xl w-full max-w-lg shadow-2xl shadow-slate-900/20 flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200 overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="px-6 py-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50 rounded-t-2xl">
+        <div className="px-6 py-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50 rounded-t-2xl shrink-0">
           <h4 className="font-semibold text-slate-800 flex items-center gap-2 text-lg">
             <FolderOpen className="w-5 h-5 text-blue-500" />
             {title}
@@ -574,8 +601,8 @@ export function PathBrowserModal({
           </button>
         </div>
         
-        <div className="p-6 overflow-y-auto flex-1 custom-scrollbar min-h-0">
-          <div className="mb-5">
+        <div className="p-6 overflow-y-auto custom-scrollbar flex flex-col flex-1 min-h-0">
+          <div className="mb-5 shrink-0">
             <label className="block text-xs font-semibold text-slate-500 mb-1.5 uppercase tracking-wider">目前路徑</label>
             <input
               value={path}
@@ -586,7 +613,7 @@ export function PathBrowserModal({
           </div>
           
           {mode === 'nas' && (
-            <div className="mb-5 bg-slate-50 p-4 rounded-xl border border-slate-100">
+            <div className="mb-5 bg-slate-50 p-4 rounded-xl border border-slate-100 shrink-0">
               <label className="block text-xs font-semibold text-slate-500 mb-2 uppercase tracking-wider">新增目錄</label>
               <div className="flex gap-2">
                 <input
@@ -609,9 +636,9 @@ export function PathBrowserModal({
             </div>
           )}
           
-          <div>
-            <label className="block text-xs font-semibold text-slate-500 mb-2 uppercase tracking-wider">目錄內容</label>
-            <div className="h-[280px] overflow-y-auto border border-slate-200 rounded-xl bg-white custom-scrollbar shadow-inner text-base">
+          <div className="flex flex-col flex-1 min-h-[250px]">
+            <label className="block text-xs font-semibold text-slate-500 mb-2 uppercase tracking-wider shrink-0">目錄內容</label>
+            <div className="flex-1 overflow-y-auto border border-slate-200 rounded-xl bg-white custom-scrollbar shadow-inner text-base">
               {loading && (
                 <div className="h-full flex items-center justify-center text-slate-400 gap-2">
                   <Loader2 className="w-5 h-5 animate-spin" /> 載入中...
@@ -637,7 +664,7 @@ export function PathBrowserModal({
                     </li>
                   )}
                   {entries.length === 0 && !canGoUp ? (
-                    <li className="px-4 py-8 text-center text-sm text-slate-400">
+                    <li className="px-4 py-8 text-center text-slate-400 text-base">
                       此目錄為空
                     </li>
                   ) : (
@@ -646,9 +673,9 @@ export function PathBrowserModal({
                         <button
                           type="button"
                           onClick={() => enterDir(e.name)}
-                          className="w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-700 transition-colors flex items-center gap-2 group"
+                          className="w-full text-left px-5 py-3 text-base text-slate-700 hover:bg-blue-50 hover:text-blue-700 transition-colors flex items-center gap-3 group"
                         >
-                          <FolderOpen className="w-4 h-4 text-slate-400 group-hover:text-blue-500 transition-colors" />
+                          <FolderOpen className="w-5 h-5 text-slate-400 group-hover:text-blue-500 transition-colors" />
                           <span className="truncate">{e.name}</span>
                         </button>
                       </li>
@@ -660,7 +687,7 @@ export function PathBrowserModal({
           </div>
         </div>
         
-        <div className="p-4 border-t border-slate-100 bg-slate-50 flex flex-row-reverse gap-3 rounded-b-2xl shrink-0 mt-auto shadow-[0_-4px_10px_-4px_rgba(0,0,0,0.05)] relative z-10">
+        <div className="p-4 border-t border-slate-100 bg-slate-50 flex flex-row-reverse gap-3 rounded-b-2xl shrink-0">
           <button 
             type="button" 
             onClick={selectCurrent}

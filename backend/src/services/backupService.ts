@@ -197,7 +197,7 @@ export async function runBackup(options: BackupOptions): Promise<string> {
       const escDest = remoteDest.replace(/"/g, '\\"');
       const cpCmdExec = `cp -R "${escSrc}" "${escDest}"`;
       log(`遠端複製 ${label}`, cpCmdDisplay);
-      const { code: cpCode, stderr: cpStderr } = await execWithSudo(
+      const { code: cpCode, stdout: cpStdout, stderr: cpStderr } = await execWithSudo(
         ssh,
         sudoPassword,
         cpCmdExec,
@@ -205,8 +205,10 @@ export async function runBackup(options: BackupOptions): Promise<string> {
       );
       if (cpCode !== 0) {
         // 過濾 sudo 的 stderr（[sudo] password for xxx:）避免誤導；實際錯誤為 cp 的 Permission denied
-        const cleanErr = (cpStderr || '')
+        const combinedOut = (cpStdout + '\n' + cpStderr);
+        const cleanErr = combinedOut
           .replace(/^\[sudo\] password for \S+:\s*/gm, '')
+          .replace(/\r\n/g, '\n')
           .trim();
         const hint = cleanErr.includes('Permission denied')
           ? '來源路徑權限不足或不存在，請在遠端以 root 執行 ls 確認路徑'

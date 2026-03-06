@@ -48,7 +48,7 @@ export function BackupProgress({
   const [deleteOldBackup, setDeleteOldBackup] = useState(false);
   const [retentionMonths, setRetentionMonths] = useState(0);
   
-  const logsEndRef = useRef<HTMLDivElement>(null);
+  const logContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     backupApi.getStagingDefaultPath().then((res) => {
@@ -57,8 +57,8 @@ export function BackupProgress({
   }, []);
 
   useEffect(() => {
-    if (logsEndRef.current) {
-      logsEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    if (logContainerRef.current) {
+      logContainerRef.current.scrollTop = logContainerRef.current.scrollHeight;
     }
   }, [operationLogs]);
 
@@ -219,7 +219,7 @@ export function BackupProgress({
             </button>
             <button 
               onClick={startBackup} 
-              disabled={loading || !stagingCreated}
+              disabled={loading || !stagingCreated || !stagingPath.trim() || !nasPath.trim()}
               className="flex-1 flex justify-center items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white py-4 rounded-xl text-base font-medium transition-all active:scale-[0.98] disabled:opacity-70 disabled:active:scale-100 shadow-md shadow-blue-600/20"
             >
               {loading ? <><Loader2 className="w-5 h-5 animate-spin"/> 啟動中...</> : <><Play className="w-5 h-5"/> 開始備份</>}
@@ -231,7 +231,7 @@ export function BackupProgress({
               <div className="w-5 h-5 rounded-full bg-red-100 text-red-600 flex items-center justify-center shrink-0 mt-0.5">
                 <span className="font-bold text-xs">!</span>
               </div>
-              <span className="leading-relaxed">{error}</span>
+              <span className="leading-relaxed whitespace-pre-wrap">{error}</span>
             </div>
           )}
         </div>
@@ -303,7 +303,7 @@ export function BackupProgress({
             <h3 className="font-semibold text-slate-800">作業日誌</h3>
           </div>
           <div className="bg-[#0D1117] rounded-2xl p-5 overflow-hidden shadow-inner border border-slate-800">
-            <div className="font-mono text-[13px] leading-relaxed max-h-[320px] overflow-y-auto custom-scrollbar pr-2">
+            <div ref={logContainerRef} className="font-mono text-[13px] leading-relaxed max-h-[320px] overflow-y-auto custom-scrollbar pr-2 scroll-smooth">
               {operationLogs.map((log, i) => (
                 <div key={i} className="mb-4 last:mb-0">
                   <div className="text-[#6A9955] mb-1"># {log.label}</div>
@@ -318,7 +318,6 @@ export function BackupProgress({
                   )}
                 </div>
               ))}
-              <div ref={logsEndRef} />
             </div>
           </div>
         </div>

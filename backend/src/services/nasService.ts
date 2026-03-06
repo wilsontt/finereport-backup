@@ -262,7 +262,7 @@ export async function verifyNas(creds: NasCredentials): Promise<{
     try {
       return await verifyViaMount(creds);
     } catch (mountErr) {
-      console.error('[NAS verifyNas] mount 失敗，嘗試 smbclient fallback:', (mountErr as Error).message);
+      console.log('[NAS verifyNas] mount 失敗，嘗試 smbclient fallback:', (mountErr as Error).message);
       return await verifyViaSmbclient(creds);
     }
   })();

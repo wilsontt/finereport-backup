@@ -30,14 +30,14 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center py-12 px-4 sm:px-6 lg:px-8 font-sans relative overflow-hidden">
+    <div className="min-h-screen flex flex-col py-12 px-4 sm:px-6 lg:px-8 font-sans relative overflow-x-hidden overflow-y-auto w-full custom-scrollbar">
       {/* Premium Background Effects */}
-      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-500/10 rounded-full blur-[100px] pointer-events-none" />
-      <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-purple-500/10 rounded-full blur-[100px] pointer-events-none" />
+      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-500/10 rounded-full blur-[100px] pointer-events-none fixed" />
+      <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-purple-500/10 rounded-full blur-[100px] pointer-events-none fixed" />
       
-      <div className="w-full max-w-3xl relative z-10">
-        {/* Header */}
-        <div className="text-center mb-12 animate-slide-up">
+      <div className="w-full max-w-3xl relative z-10 mx-auto">
+        {/* Header - Make it shrinkable so it doesn't take up too much space when scrolling */}
+        <div className="text-center mb-8 animate-slide-up shrink-0">
           <div className="inline-flex items-center justify-center p-3 mb-6 bg-white/80 backdrop-blur-xl rounded-3xl shadow-glass border border-white/50">
             <img 
               src={logoUrl}
@@ -56,7 +56,7 @@ function App() {
         </div>
 
         {/* Main Card */}
-        <div className="bg-white/80 backdrop-blur-2xl rounded-[2rem] shadow-glass border border-white/60 overflow-hidden animate-slide-up" style={{ animationDelay: '0.1s' }}>
+        <div className="bg-white/80 backdrop-blur-2xl rounded-[2rem] shadow-glass border border-white/60 overflow-visible animate-slide-up" style={{ animationDelay: '0.1s' }}>
           <div className="p-8 sm:p-12">
             {step === 'credentials' && (
               <CredentialForm onDone={onCredentialsDone} />
