@@ -184,9 +184,6 @@ async function verifyViaMount(creds: NasCredentials): Promise<{ ok: boolean; ful
     const result = await mountNas(creds, mountPoint);
     if (result.didMount) {
       await unmountNas(result.path);
-    } else {
-      // 若已經掛載過，我們無法確認本次輸入的帳密是否正確，因此強制進入 smbclient fallback 來驗證帳密
-      throw new Error('ALREADY_MOUNTED_NEED_SMBCLIENT_VERIFY');
     }
     const host = creds.host.replace(/^smb:\/\//, '').trim();
     return { ok: true, fullPath: fullPath(host, creds.share, creds.path) };
@@ -262,7 +259,7 @@ export async function verifyNas(creds: NasCredentials): Promise<{
     try {
       return await verifyViaMount(creds);
     } catch (mountErr) {
-      console.log('[NAS verifyNas] mount 失敗，嘗試 smbclient fallback:', (mountErr as Error).message);
+      console.error('[NAS verifyNas] mount 失敗，嘗試 smbclient fallback:', (mountErr as Error).message);
       return await verifyViaSmbclient(creds);
     }
   })();

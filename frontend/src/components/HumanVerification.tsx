@@ -3,8 +3,6 @@
  */
 import { useState, useEffect } from 'react';
 import { backupApi } from '../api/backup';
-import { ShieldCheck, RefreshCw, Loader2, CheckCircle2 } from 'lucide-react';
-import { UI_PRO_MAX } from '../styles/designSystem';
 
 interface Props {
   verifiedNasPath?: string;
@@ -55,108 +53,68 @@ export function HumanVerification({ verifiedNasPath, onDone }: Props) {
 
   if (verified) {
     return (
-      <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-        <div className={UI_PRO_MAX.card}>
-          <div className={UI_PRO_MAX.cardHeader}>
-            <div className="p-3 bg-emerald-50 text-emerald-600 rounded-2xl mb-4">
-              <CheckCircle2 className="w-8 h-8" />
-            </div>
-            <h2 className={UI_PRO_MAX.cardTitle}>安全驗證已通過</h2>
-            <p className={UI_PRO_MAX.pSub}>您可以繼續進行下一步</p>
+      <div>
+        <h2 style={{ marginBottom: '0.5rem' }}>2. 4 碼數字驗證</h2>
+        <div className="card">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem', color: 'var(--color-success)', fontWeight: 600 }}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+            驗證成功
           </div>
-
-          <div className={UI_PRO_MAX.cardBody}>
-            <div className="max-w-2xl mx-auto py-4">
-              <div className={UI_PRO_MAX.alertSuccess}>
-                <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
-                <div>
-                  <p className="font-medium text-emerald-900">身分驗證成功</p>
-                  <p className="text-emerald-800/80 mt-1">系統已確認您的操作權限。</p>
-                </div>
-              </div>
-              
-              {verifiedNasPath && (
-                <div className="mt-6 p-5 bg-slate-50 border border-slate-200 rounded-xl">
-                  <p className="text-sm font-medium text-slate-700 mb-3 flex items-center gap-2">
-                    <ShieldCheck className="w-4 h-4 text-slate-400" />
-                    已授權存取 NAS 路徑：
-                  </p>
-                  <div className={UI_PRO_MAX.codeBlock}>
-                    {verifiedNasPath}
-                  </div>
-                </div>
-              )}
-
-              <div className="mt-8 flex justify-end">
-                <button onClick={onDone} className={UI_PRO_MAX.buttonPrimary}>
-                  繼續設定備份目錄
-                </button>
-              </div>
+          {verifiedNasPath && (
+            <div style={{ padding: '1rem', background: 'var(--color-bg)', borderRadius: 'var(--radius-md)', fontSize: '0.875rem', marginBottom: '1.5rem', border: '1px solid var(--color-border)' }}>
+              <p style={{ margin: '0 0 0.25rem 0', fontWeight: 600, color: 'var(--color-text-muted)' }}>NAS 驗證路徑：</p>
+              <code style={{ wordBreak: 'break-all', fontFamily: 'ui-monospace, monospace' }}>{verifiedNasPath}</code>
             </div>
-          </div>
+          )}
+          <button className="btn btn-primary" onClick={onDone}>繼續</button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div className={UI_PRO_MAX.card}>
-        <div className={UI_PRO_MAX.cardHeader}>
-          <div className="p-3 bg-blue-50 text-blue-600 rounded-2xl mb-4">
-            <ShieldCheck className="w-8 h-8" />
-          </div>
-          <h2 className={UI_PRO_MAX.cardTitle}>安全驗證</h2>
-          <p className={UI_PRO_MAX.pSub}>請輸入下方顯示的 4 碼數字以確認您的身分</p>
-        </div>
-
-        <div className={UI_PRO_MAX.cardBody + " flex flex-col items-center justify-center"}>
-          <div className="w-full max-w-sm flex flex-col items-center py-6">
-            <div className="w-full mb-8 relative group">
-              <div className="absolute inset-0 bg-slate-100 rounded-xl transform translate-y-2 group-hover:translate-y-3 transition-transform" />
-              <div className="relative bg-white border border-slate-200 rounded-xl p-8 flex flex-col items-center justify-center shadow-sm">
-                {displayCode ? (
-                  <div className="text-5xl tracking-[0.2em] font-bold text-slate-800 font-mono">
-                    {displayCode}
-                  </div>
-                ) : (
-                  <div className="h-12 flex items-center justify-center">
-                    <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
-                  </div>
-                )}
-              </div>
+    <div>
+      <h2 style={{ marginBottom: '0.5rem' }}>2. 4 碼數字驗證</h2>
+      <p className="subtitle">請輸入下方顯示的 4 碼數字（防止機器人登入）</p>
+      
+      <div className="card">
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1.5rem', padding: '1rem 0' }}>
+          {displayCode ? (
+            <div style={{ background: 'var(--color-bg)', padding: '1rem 2rem', borderRadius: 'var(--radius-lg)', border: '1px solid var(--color-border)' }}>
+              <p style={{ fontSize: '2.5rem', letterSpacing: '0.5rem', fontWeight: 700, margin: 0, color: 'var(--color-primary)' }}>
+                {displayCode}
+              </p>
             </div>
-
-            <div className="w-full space-y-6 flex flex-col items-center">
+          ) : (
+            <button className="btn btn-secondary" onClick={fetchCode} disabled={loading}>
+              {loading ? '取得中...' : '取得驗證碼'}
+            </button>
+          )}
+          
+          <div className="w-full" style={{ maxWidth: '300px' }}>
+            <div className="input-group">
               <input
-                placeholder="0000"
+                className="input-field"
+                style={{ textAlign: 'center', fontSize: '1.25rem', letterSpacing: '0.25rem' }}
+                placeholder="輸入 4 碼"
                 maxLength={4}
                 value={code}
                 onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
-                className={UI_PRO_MAX.inputVerification}
-                autoFocus
               />
-              
-              <div className="w-full grid grid-cols-2 gap-3">
-                <button onClick={fetchCode} disabled={loading} className={`${UI_PRO_MAX.buttonSecondary} w-full`}>
-                  <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-                  重新取得
-                </button>
-                <button onClick={verify} disabled={loading || code.length !== 4} className={`${UI_PRO_MAX.buttonPrimary} w-full bg-slate-900 hover:bg-slate-800 focus:ring-slate-900`}>
-                  {loading ? <><Loader2 className="w-5 h-5 animate-spin"/> 驗證中</> : '確認驗證'}
-                </button>
-              </div>
             </div>
+            
+            <button className="btn btn-primary w-full mb-4" onClick={verify} disabled={loading || code.length !== 4}>
+              {loading ? '驗證中...' : '驗證'}
+            </button>
+            
+            <button className="btn btn-secondary w-full" onClick={fetchCode} disabled={loading}>
+              重新取得驗證碼
+            </button>
           </div>
         </div>
+        
+        {error && <div className="alert-error" style={{ marginTop: '1.5rem', marginBottom: 0 }}>{error}</div>}
       </div>
-
-      {error && (
-        <div className={UI_PRO_MAX.alertError + " mt-6"}>
-          <div className={UI_PRO_MAX.alertErrorIconBox}>!</div>
-          <span className="leading-relaxed">{error}</span>
-        </div>
-      )}
     </div>
   );
 }

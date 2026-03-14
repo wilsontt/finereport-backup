@@ -19,7 +19,7 @@ const DEFAULT_NAS_PATH = '4.備份記錄/KE';
 export const verifyNasSchema = z.object({
   host: z.string().min(1),
   username: z.string().min(1),
-  password: z.string().min(1),
+  password: z.string(),
   share: z.string().optional().transform((v) => (v?.trim() ? v.trim() : DEFAULT_NAS_SHARE)),
   path: z.string().optional().transform((v) => (v?.trim() ? v.trim() : DEFAULT_NAS_PATH)),
   domain: z.string().optional(),

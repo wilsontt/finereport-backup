@@ -1,11 +1,11 @@
-# FineReport 備份工具前端（Vite 7、Tailwind 4 需 Node >= 20）
-FROM node:20-alpine AS builder
+# FineReport 備份工具前端
+FROM node:18-alpine AS builder
 
 WORKDIR /app
 COPY frontend/package*.json ./
-RUN npm install
+RUN npm ci
 COPY frontend/ ./
-RUN ./node_modules/.bin/vite build
+RUN npm run build
 
 FROM nginx:alpine
 COPY --from=builder /app/dist /usr/share/nginx/html

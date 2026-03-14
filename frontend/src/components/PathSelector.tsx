@@ -1,8 +1,9 @@
+/**
+ * 遠端來源與 NAS 路徑確認
+ */
 import { useState, useEffect } from 'react';
 import { backupApi } from '../api/backup';
-import { Search, Plus, FolderOpen, Edit2, Trash2, CheckCircle2, XCircle, HardDrive, Server, ArrowRight, Loader2 } from 'lucide-react';
 import type { BackupSource } from '../types';
-import { UI_PRO_MAX } from '../styles/designSystem';
 
 interface Props {
   onDone: () => void;
@@ -60,20 +61,7 @@ export function PathSelector({
   }, []);
 
   const handleAddSource = async () => {
-    if (!addLabel.trim()) {
-      setError('新增失敗：請輸入「標籤」名稱（例如：自訂範本）');
-      return;
-    }
-    if (!addSourcePath.trim()) {
-      setError('新增失敗：請選擇或輸入「來源路徑」');
-      return;
-    }
-    if (!addDestPath.trim()) {
-      setError('新增失敗：請選擇或輸入「目的路徑」');
-      return;
-    }
-    setError('');
-    
+    if (!addLabel.trim() || !addSourcePath.trim() || !addDestPath.trim()) return;
     const res = await backupApi.addSource({
       label: addLabel,
       sourcePath: addSourcePath,
@@ -104,21 +92,7 @@ export function PathSelector({
   };
 
   const updateSource = () => {
-    if (!editingSource) return;
-    if (!editLabel.trim()) {
-      setError('儲存失敗：請輸入「標籤」名稱');
-      return;
-    }
-    if (!editSourcePath.trim()) {
-      setError('儲存失敗：請選擇或輸入「來源路徑」');
-      return;
-    }
-    if (!editDestPath.trim()) {
-      setError('儲存失敗：請選擇或輸入「目的路徑」');
-      return;
-    }
-    setError('');
-    
+    if (!editingSource || !editLabel.trim() || !editSourcePath.trim() || !editDestPath.trim()) return;
     setSources(sources.map((s) =>
       s.id === editingSource.id
         ? { ...s, label: editLabel.trim(), sourcePath: editSourcePath.trim(), destPath: editDestPath.trim() }
@@ -168,219 +142,130 @@ export function PathSelector({
   };
 
   return (
-    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div className={UI_PRO_MAX.card}>
-        <div className={UI_PRO_MAX.cardHeader}>
-          <div className="p-3 bg-blue-50 text-blue-600 rounded-2xl mb-4">
-            <FolderOpen className="w-8 h-8" />
-          </div>
-          <h2 className={UI_PRO_MAX.cardTitle}>備份目錄設定</h2>
-          <p className={UI_PRO_MAX.pSub}>請確認遠端來源與 NAS 儲存路徑</p>
+    <div>
+      <h2 style={{ marginBottom: '0.5rem' }}>3. 確認備份目錄</h2>
+      <p className="subtitle">請確認遠端來源與 NAS 備份路徑</p>
+      
+      <div className="card" style={{ opacity: isBrowsing ? 0.5 : 1, pointerEvents: isBrowsing ? 'none' : 'auto' }}>
+        <div className="mb-4">
+          <button className="btn btn-secondary w-full" onClick={discover} disabled={loading}>
+            {loading ? '探索中...' : '探索遠端目錄'}
+          </button>
         </div>
-
-        <div className={UI_PRO_MAX.cardBody}>
-          <div className={`space-y-8 transition-all duration-300 max-w-3xl mx-auto ${isBrowsing ? 'opacity-40 pointer-events-none' : ''}`}>
-            
-            {/* NAS Path Section */}
-            <section>
-              <h3 className={UI_PRO_MAX.sectionTitle}>
-                <HardDrive className="w-5 h-5 text-slate-400" />
-                NAS 備份目的路徑
-              </h3>
-              <div className="bg-slate-50 border border-slate-200 rounded-xl p-5">
-                <div className="flex gap-3">
-                  <input
-                    className={UI_PRO_MAX.input}
-                    placeholder="例：4.備份記錄/KE/2026/FineReport"
-                    value={nasPath}
-                    onChange={(e) => setNasPath(e.target.value)}
-                  />
-                  <button 
-                    type="button" 
-                    onClick={() => setBrowseTarget('nasPath')} 
-                    disabled={isBrowsing}
-                    className={UI_PRO_MAX.buttonSecondary}
-                  >
-                    <FolderOpen className="w-4 h-4" />
-                    瀏覽
-                  </button>
-                </div>
-                <p className="mt-2 text-xs text-slate-500">預設為 NAS 驗證時輸入的路徑，可修改或點擊瀏覽重新選擇。</p>
-              </div>
-            </section>
-
-            <hr className="border-slate-200" />
-
-            {/* Remote Sources Section */}
-            <section>
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
-                <h3 className={UI_PRO_MAX.sectionTitle + " mb-0"}>
-                  <Server className="w-5 h-5 text-slate-400" />
-                  遠端備份來源
-                </h3>
-                <div className="flex gap-2">
-                  <button 
-                    onClick={discover} 
-                    disabled={loading}
-                    className={UI_PRO_MAX.buttonSecondary}
-                  >
-                    {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
-                    自動探索
-                  </button>
-                  <button 
-                    type="button" 
-                    onClick={() => setAddSourceOpen(true)} 
-                    disabled={isBrowsing || addSourceOpen}
-                    className={UI_PRO_MAX.buttonPrimary}
-                  >
-                    <Plus className="w-4 h-4" />
-                    新增來源
-                  </button>
-                </div>
-              </div>
-
-              {sources.length === 0 && !addSourceOpen ? (
-                <div className="text-center py-10 bg-slate-50 border border-dashed border-slate-300 rounded-xl">
-                  <Server className="w-10 h-10 text-slate-300 mx-auto mb-3" />
-                  <p className="text-slate-500 font-medium">目前沒有設定任何備份來源</p>
-                  <p className="text-sm text-slate-400 mt-1">請點擊「自動探索」或「新增來源」</p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {sources.map((s) => (
-                    <div key={s.id} className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm transition-shadow hover:shadow-md">
-                      {editingSource?.id === s.id ? (
-                        <div className="p-5 bg-slate-50 border-b border-slate-200">
-                          <SourceEditForm
-                            label={editLabel}
-                            sourcePath={editSourcePath}
-                            destPath={editDestPath}
-                            onLabelChange={setEditLabel}
-                            onSourcePathChange={setEditSourcePath}
-                            onDestPathChange={setEditDestPath}
-                            onSave={updateSource}
-                            onCancel={() => setEditingSource(null)}
-                            onBrowseSourcePath={() => setBrowseTarget('editSourcePath')}
-                            onBrowseDestPath={() => setBrowseTarget('editDestPath')}
-                          />
+        
+        {sources.length > 0 && (
+          <div className="mb-4">
+            <div className="flex justify-between items-center mb-4">
+              <h3 style={{ margin: 0 }}>遠端來源</h3>
+              <button className="btn btn-secondary" style={{ padding: '0.25rem 0.75rem', fontSize: '0.75rem' }} type="button" onClick={() => setAddSourceOpen(true)} disabled={isBrowsing}>
+                新增自訂來源
+              </button>
+            </div>
+            <ul style={{ listStyle: 'none', padding: 0, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              {sources.map((s) => (
+                <li key={s.id} style={{ padding: '0.75rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', backgroundColor: '#fff' }}>
+                  {editingSource?.id === s.id ? (
+                    <SourceEditForm
+                      label={editLabel}
+                      sourcePath={editSourcePath}
+                      destPath={editDestPath}
+                      onLabelChange={setEditLabel}
+                      onSourcePathChange={setEditSourcePath}
+                      onDestPathChange={setEditDestPath}
+                      onSave={updateSource}
+                      onCancel={() => setEditingSource(null)}
+                      onBrowseSourcePath={() => setBrowseTarget('editSourcePath')}
+                      onBrowseDestPath={() => setBrowseTarget('editDestPath')}
+                    />
+                  ) : (
+                    <div className="flex justify-between items-center">
+                      <div style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        <div style={{ fontWeight: 600, marginBottom: '0.25rem' }}>{s.label}</div>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
+                          <div>來源: {s.sourcePath}</div>
+                          <div>目的: {s.destPath}</div>
                         </div>
-                      ) : (
-                        <div className="p-5 flex flex-col sm:flex-row sm:items-start justify-between gap-5">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-3">
-                              <span className="font-semibold text-slate-900">{s.label}</span>
-                              <span className={UI_PRO_MAX.badgeGray}>ID: {s.id.split('-').pop()}</span>
-                            </div>
-                            
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                              <div className="bg-slate-50 rounded-lg p-3 border border-slate-100">
-                                <span className="block text-xs font-semibold text-slate-400 mb-1">來源 (遠端)</span>
-                                <code className="text-sm text-slate-700 break-all font-mono">{s.sourcePath}</code>
-                              </div>
-                              <div className="bg-blue-50/50 rounded-lg p-3 border border-blue-100">
-                                <span className="block text-xs font-semibold text-blue-400 mb-1">目的 (NAS)</span>
-                                <code className="text-sm text-blue-700 break-all font-mono">{s.destPath}</code>
-                              </div>
-                            </div>
-                          </div>
-                          
-                          <div className="flex items-center gap-2 shrink-0 sm:pt-1">
-                            <button 
-                              type="button" 
-                              onClick={() => startEdit(s)} 
-                              disabled={isBrowsing}
-                              className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors border border-transparent hover:border-blue-100"
-                              title="編輯"
-                            >
-                              <Edit2 className="w-4 h-4" />
-                            </button>
-                            <button 
-                              type="button" 
-                              onClick={() => removeSource(s.id)} 
-                              disabled={isBrowsing}
-                              className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors border border-transparent hover:border-red-100"
-                              title="移除"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-
-                  {addSourceOpen && (
-                    <div className="bg-slate-50 border border-slate-200 rounded-xl p-5 animate-in slide-in-from-top-4">
-                      <h4 className="font-semibold text-slate-800 mb-5 flex items-center gap-2">
-                        <Plus className="w-4 h-4 text-blue-600" />
-                        新增自訂來源
-                      </h4>
-                      <div className="space-y-5 max-w-2xl">
-                        <PathInputWithBrowse
-                          label="來源標籤名稱"
-                          value={addLabel}
-                          onChange={setAddLabel}
-                          placeholder="例如：自訂報表範本"
-                        />
-                        <PathInputWithBrowse
-                          label="來源路徑 (遠端伺服器絕對路徑)"
-                          value={addSourcePath}
-                          onChange={setAddSourcePath}
-                          placeholder="例：/opt/tomcat/webapps/webroot/reportlets"
-                          onBrowse={() => setBrowseTarget('addSourcePath')}
-                        />
-                        <PathInputWithBrowse
-                          label="目的路徑 (NAS 相對路徑)"
-                          value={addDestPath}
-                          onChange={setAddDestPath}
-                          placeholder="例：webroot/reportlets"
-                          onBrowse={() => setBrowseTarget('addDestPath')}
-                        />
-                        <div className="flex justify-end gap-3 pt-4 border-t border-slate-200">
-                          <button 
-                            onClick={() => setAddSourceOpen(false)}
-                            className={UI_PRO_MAX.buttonSecondary}
-                          >
-                            取消
-                          </button>
-                          <button 
-                            onClick={handleAddSource}
-                            className={UI_PRO_MAX.buttonPrimary}
-                          >
-                            新增來源
-                          </button>
-                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <button className="btn btn-secondary" style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }} type="button" onClick={() => startEdit(s)} disabled={isBrowsing}>
+                          編輯
+                        </button>
+                        <button className="btn btn-secondary" style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem', color: 'var(--color-error-text)', borderColor: '#fecaca' }} type="button" onClick={() => removeSource(s.id)} disabled={isBrowsing}>
+                          移除
+                        </button>
                       </div>
                     </div>
                   )}
-                </div>
-              )}
-            </section>
-
-            <div className="pt-8 flex justify-end">
-              <button
-                onClick={onDone}
-                disabled={sources.length === 0 || !nasPath.trim() || isBrowsing}
-                className={UI_PRO_MAX.buttonPrimary}
-              >
-                確認設定並繼續
-                <ArrowRight className="w-5 h-5 ml-1" />
-              </button>
-            </div>
+                </li>
+              ))}
+            </ul>
           </div>
+        )}
+        
+        <div className="mb-4">
+          <h3 style={{ marginBottom: '0.5rem' }}>NAS 備份路徑</h3>
+          <div className="flex gap-2">
+            <input
+              className="input-field"
+              placeholder="例：4.備份記錄/KE/2026/FineReport"
+              value={nasPath}
+              onChange={(e) => setNasPath(e.target.value)}
+              style={{ flex: 1 }}
+            />
+            <button className="btn btn-secondary" type="button" onClick={() => setBrowseTarget('nasPath')} disabled={isBrowsing}>
+              瀏覽
+            </button>
+          </div>
+          <small style={{ color: 'var(--color-text-muted)', display: 'block', marginTop: '0.25rem' }}>預設為 NAS 驗證時輸入的路徑，可修改或點「瀏覽」選擇</small>
+        </div>
+        
+        <div className="mt-4">
+          <button
+            className="btn btn-primary"
+            onClick={onDone}
+            disabled={sources.length === 0 || !nasPath.trim() || isBrowsing}
+          >
+            確認並開始備份
+          </button>
         </div>
       </div>
+      {error && <div className="alert-error">{error}</div>}
 
-      {error && (
-        <div className={UI_PRO_MAX.alertError + " mt-6"}>
-          <div className={UI_PRO_MAX.alertErrorIconBox}>!</div>
-          <span className="leading-relaxed">{error}</span>
+      {addSourceOpen && (
+        <div className="card" style={{ opacity: isBrowsing ? 0.5 : 1, pointerEvents: isBrowsing ? 'none' : 'auto', marginTop: '1rem' }}>
+          <h4 style={{ marginBottom: '1rem' }}>新增自訂來源</h4>
+          <PathInputWithBrowse
+            label="標籤"
+            value={addLabel}
+            onChange={setAddLabel}
+            placeholder="例如：自訂範本"
+          />
+          <PathInputWithBrowse
+            label="來源路徑（遠端伺服器）"
+            value={addSourcePath}
+            onChange={setAddSourcePath}
+            placeholder="例：/opt/tomcat/webapps/webroot/reportlets"
+            onBrowse={() => setBrowseTarget('addSourcePath')}
+            browseLabel="瀏覽"
+          />
+          <PathInputWithBrowse
+            label="目的路徑（NAS 相對路徑）"
+            value={addDestPath}
+            onChange={setAddDestPath}
+            placeholder="例：webroot/reportlets"
+            onBrowse={() => setBrowseTarget('addDestPath')}
+            browseLabel="瀏覽"
+          />
+          <div className="flex gap-2 mt-4">
+            <button className="btn btn-primary" style={{ flex: 1 }} onClick={handleAddSource}>新增</button>
+            <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setAddSourceOpen(false)}>取消</button>
+          </div>
         </div>
       )}
 
       {isBrowsing && (
         <PathBrowserModal
-          title={isNasBrowse ? '選擇 NAS 路徑' : '選擇遠端來源路徑'}
+          title={isNasBrowse ? '瀏覽 NAS 路徑' : '瀏覽遠端來源路徑'}
           currentPath={getBrowseInitialPath()}
           mode={isNasBrowse ? 'nas' : 'remote'}
           onSelect={handleBrowseSelectWithBase}
@@ -391,37 +276,36 @@ export function PathSelector({
   );
 }
 
+/** 路徑輸入 + 瀏覽按鈕 */
 function PathInputWithBrowse({
   label,
   value,
   onChange,
   placeholder,
   onBrowse,
+  browseLabel = '瀏覽',
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
   placeholder?: string;
   onBrowse?: () => void;
+  browseLabel?: string;
 }) {
   return (
-    <div>
-      <label className="block text-xs font-semibold text-slate-500 mb-1.5">{label}</label>
+    <div className="input-group">
+      <label>{label}</label>
       <div className="flex gap-2">
         <input
+          className="input-field"
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
-          className={UI_PRO_MAX.inputSm}
+          style={{ flex: 1 }}
         />
         {onBrowse && (
-          <button 
-            type="button" 
-            onClick={onBrowse}
-            className="shrink-0 px-3 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-colors flex items-center justify-center"
-            title="瀏覽"
-          >
-            <FolderOpen className="w-4 h-4" />
+          <button className="btn btn-secondary" type="button" onClick={onBrowse}>
+            {browseLabel}
           </button>
         )}
       </div>
@@ -429,6 +313,7 @@ function PathInputWithBrowse({
   );
 }
 
+/** 遠端來源編輯表單 */
 function SourceEditForm({
   label,
   sourcePath,
@@ -453,7 +338,7 @@ function SourceEditForm({
   onBrowseDestPath: () => void;
 }) {
   return (
-    <div className="space-y-4 bg-white p-5 rounded-xl border border-blue-100 shadow-sm">
+    <div className="flex" style={{ flexDirection: 'column', gap: '0.5rem', flex: 1 }}>
       <PathInputWithBrowse label="標籤" value={label} onChange={onLabelChange} placeholder="標籤" />
       <PathInputWithBrowse
         label="來源路徑"
@@ -469,28 +354,15 @@ function SourceEditForm({
         placeholder="目的路徑"
         onBrowse={onBrowseDestPath}
       />
-      <div className="flex gap-3 pt-3">
-        <button 
-          type="button" 
-          onClick={onSave}
-          className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-xl text-base font-medium transition-colors flex items-center justify-center gap-2"
-        >
-          <CheckCircle2 className="w-5 h-5" />
-          儲存
-        </button>
-        <button 
-          type="button" 
-          onClick={onCancel}
-          className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 py-3 rounded-xl text-base font-medium transition-colors flex items-center justify-center gap-2"
-        >
-          <XCircle className="w-5 h-5" />
-          取消
-        </button>
+      <div className="flex gap-2 mt-4">
+        <button className="btn btn-primary" style={{ flex: 1, padding: '0.5rem' }} type="button" onClick={onSave}>儲存</button>
+        <button className="btn btn-secondary" style={{ flex: 1, padding: '0.5rem' }} type="button" onClick={onCancel}>取消</button>
       </div>
     </div>
   );
 }
 
+/** 路徑瀏覽器 Modal（含全螢幕遮罩，鎖定其他操作）— 可匯出供其他元件使用 */
 export function PathBrowserModal({
   title,
   currentPath,
@@ -592,125 +464,91 @@ export function PathBrowserModal({
   };
 
   return (
-    <div
-      className="fixed inset-0 z-[1000] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 animate-in fade-in duration-200"
-      onClick={(e) => e.target === e.currentTarget && onClose()}
-    >
-      <div
-        className="bg-white rounded-2xl w-full max-w-lg shadow-2xl shadow-slate-900/20 flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200 overflow-hidden"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="px-6 py-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50 rounded-t-2xl shrink-0">
-          <h4 className="font-semibold text-slate-800 flex items-center gap-2 text-lg">
-            <FolderOpen className="w-5 h-5 text-blue-500" />
-            {title}
-          </h4>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100 transition-colors">
-            <XCircle className="w-6 h-6" />
+    <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-header">
+          <h4 className="modal-title">{title}</h4>
+          <button className="modal-close" onClick={onClose}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
           </button>
         </div>
         
-        <div className="p-6 overflow-y-auto custom-scrollbar flex flex-col flex-1 min-h-0">
-          <div className="mb-5 shrink-0">
-            <label className="block text-xs font-semibold text-slate-500 mb-1.5 uppercase tracking-wider">目前路徑</label>
+        <div className="modal-body">
+          <div className="input-group">
+            <label>目前路徑</label>
             <input
+              className="input-field"
               value={path}
               onChange={(e) => setPath(e.target.value)}
               placeholder={mode === 'remote' ? '/' : '路徑'}
-              className={UI_PRO_MAX.inputSm}
             />
           </div>
           
           {mode === 'nas' && (
-            <div className="mb-5 bg-slate-50 p-4 rounded-xl border border-slate-100 shrink-0">
-              <label className="block text-xs font-semibold text-slate-500 mb-2 uppercase tracking-wider">新增目錄</label>
+            <div className="input-group">
+              <label>新增目錄</label>
               <div className="flex gap-2">
                 <input
+                  className="input-field"
                   value={newDirName}
                   onChange={(e) => { setNewDirName(e.target.value); setCreateErr(''); }}
                   placeholder="輸入新目錄名稱"
-                  className={UI_PRO_MAX.inputSm}
                   onKeyDown={(e) => e.key === 'Enter' && handleCreateDir()}
+                  style={{ flex: 1 }}
                 />
-                <button 
-                  type="button" 
-                  onClick={handleCreateDir} 
-                  disabled={creating || !newDirName.trim()}
-                  className="shrink-0 px-5 py-2.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-base font-medium rounded-lg transition-colors disabled:opacity-50"
-                >
-                  {creating ? <Loader2 className="w-4 h-4 animate-spin" /> : '新增'}
+                <button className="btn btn-secondary" type="button" onClick={handleCreateDir} disabled={creating || !newDirName.trim()}>
+                  {creating ? '建立中...' : '新增'}
                 </button>
               </div>
-              {createErr && <p className="text-red-500 text-xs mt-2 flex items-center gap-1"><XCircle className="w-3 h-3" />{createErr}</p>}
+              {createErr && <div className="alert-error" style={{ padding: '0.5rem', marginTop: '0.5rem', marginBottom: 0 }}>{createErr}</div>}
             </div>
           )}
           
-          <div className="flex flex-col flex-1 min-h-[250px]">
-            <label className="block text-xs font-semibold text-slate-500 mb-2 uppercase tracking-wider shrink-0">目錄內容</label>
-            <div className="flex-1 overflow-y-auto border border-slate-200 rounded-xl bg-white custom-scrollbar shadow-inner text-base">
-              {loading && (
-                <div className="h-full flex items-center justify-center text-slate-400 gap-2">
-                  <Loader2 className="w-5 h-5 animate-spin" /> 載入中...
-                </div>
-              )}
-              {err && (
-                <div className="h-full flex items-center justify-center text-red-500 gap-2 p-4 text-center">
-                  <XCircle className="w-5 h-5 shrink-0" /> {err}
-                </div>
-              )}
+          <div className="input-group" style={{ marginBottom: 0 }}>
+            <label>當前目錄內容</label>
+            <div style={{ maxHeight: '250px', overflowY: 'auto', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', backgroundColor: '#fff', padding: '0.5rem' }}>
+              {loading && <div style={{ padding: '1rem', textAlign: 'center', color: 'var(--color-text-muted)' }}>載入中...</div>}
+              {err && <div className="alert-error" style={{ margin: 0 }}>{err}</div>}
               {!loading && !err && (
-                <ul className="py-1">
+                <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
                   {canGoUp && (
                     <li>
-                      <button 
-                        type="button" 
-                        onClick={goUp} 
-                        className="w-full text-left px-5 py-3 text-base text-slate-600 hover:bg-slate-50 hover:text-blue-600 transition-colors flex items-center gap-3"
+                      <button
+                        className="btn btn-secondary w-full"
+                        style={{ justifyContent: 'flex-start', border: 'none', padding: '0.5rem', marginBottom: '0.25rem' }}
+                        type="button"
+                        onClick={goUp}
                       >
-                        <span className="w-6 h-6 flex items-center justify-center bg-slate-100 rounded text-slate-500 font-bold">↑</span>
-                        回上一層
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '0.5rem' }}><path d="m18 15-6-6-6 6"/></svg>
+                        上一層
                       </button>
                     </li>
                   )}
-                  {entries.length === 0 && !canGoUp ? (
-                    <li className="px-4 py-8 text-center text-slate-400 text-base">
-                      此目錄為空
-                    </li>
-                  ) : (
-                    entries.map((e) => (
-                      <li key={e.name}>
-                        <button
-                          type="button"
-                          onClick={() => enterDir(e.name)}
-                          className="w-full text-left px-5 py-3 text-base text-slate-700 hover:bg-blue-50 hover:text-blue-700 transition-colors flex items-center gap-3 group"
-                        >
-                          <FolderOpen className="w-5 h-5 text-slate-400 group-hover:text-blue-500 transition-colors" />
-                          <span className="truncate">{e.name}</span>
-                        </button>
-                      </li>
-                    ))
+                  {entries.length === 0 && !canGoUp && (
+                    <li style={{ padding: '1rem', textAlign: 'center', color: 'var(--color-text-muted)' }}>空目錄</li>
                   )}
+                  {entries.map((e) => (
+                    <li key={e.name}>
+                      <button
+                        className="btn btn-secondary w-full"
+                        style={{ justifyContent: 'flex-start', border: 'none', padding: '0.5rem', marginBottom: '0.25rem' }}
+                        type="button"
+                        onClick={() => enterDir(e.name)}
+                      >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '0.5rem', color: 'var(--color-primary)' }}><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                        {e.name}
+                      </button>
+                    </li>
+                  ))}
                 </ul>
               )}
             </div>
           </div>
         </div>
         
-        <div className="p-4 border-t border-slate-100 bg-slate-50 flex flex-row-reverse gap-3 rounded-b-2xl shrink-0">
-          <button 
-            type="button" 
-            onClick={selectCurrent}
-            className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-xl font-medium transition-colors shadow-sm text-base"
-          >
-            選擇此路徑
-          </button>
-          <button 
-            type="button" 
-            onClick={onClose}
-            className="w-32 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 py-3 rounded-xl font-medium transition-colors text-base"
-          >
-            取消
-          </button>
+        <div className="modal-footer">
+          <button className="btn btn-secondary" type="button" onClick={onClose}>取消</button>
+          <button className="btn btn-primary" style={{ width: 'auto' }} type="button" onClick={selectCurrent}>選擇此路徑</button>
         </div>
       </div>
     </div>

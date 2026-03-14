@@ -1,12 +1,10 @@
 /**
  * 備份進度與報告
  */
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { backupApi } from '../api/backup';
 import { PathBrowserModal } from './PathSelector';
-import { CheckCircle2, XCircle, Loader2, Terminal, FolderOpen, CalendarDays, Play } from 'lucide-react';
 import type { BackupSource } from '../types';
-import { UI_PRO_MAX } from '../styles/designSystem';
 
 interface OperationLog {
   label: string;
@@ -48,20 +46,12 @@ export function BackupProgress({
   const [browseStaging, setBrowseStaging] = useState(false);
   const [deleteOldBackup, setDeleteOldBackup] = useState(false);
   const [retentionMonths, setRetentionMonths] = useState(0);
-  
-  const logContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     backupApi.getStagingDefaultPath().then((res) => {
       if (!res.error && res.data?.path) setStagingPath(res.data.path);
     });
   }, []);
-
-  useEffect(() => {
-    if (logContainerRef.current) {
-      logContainerRef.current.scrollTop = logContainerRef.current.scrollHeight;
-    }
-  }, [operationLogs]);
 
   const createStagingDir = async () => {
     if (!stagingPath.trim()) {
@@ -142,116 +132,80 @@ export function BackupProgress({
 
   if (!backupId) {
     return (
-      <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-        <div className={UI_PRO_MAX.card}>
-          <div className={UI_PRO_MAX.cardHeader}>
-            <div className="p-3 bg-blue-50 text-blue-600 rounded-2xl mb-4">
-              <Play className="w-8 h-8 ml-1" />
+      <div style={{ position: 'relative' }}>
+        <h2 style={{ marginBottom: '0.5rem' }}>4. 開始備份</h2>
+        <p className="subtitle">請確認暫存目錄與舊備份保留設定</p>
+        
+        <div className="card">
+          <div className="input-group">
+            <label>暫存目錄（遠端伺服器）</label>
+            <div className="flex gap-2">
+              <input
+                className="input-field"
+                value={stagingPath}
+                onChange={(e) => setStagingPath(e.target.value)}
+                placeholder="例：/home/crownap/backup/202603"
+                style={{ flex: 1 }}
+              />
+              <button
+                className="btn btn-secondary"
+                type="button"
+                onClick={() => setBrowseStaging(true)}
+                disabled={stagingCreated}
+              >
+                瀏覽
+              </button>
             </div>
-            <h2 className={UI_PRO_MAX.cardTitle}>開始備份</h2>
-            <p className={UI_PRO_MAX.pSub}>設定暫存目錄與保留策略後即可開始備份</p>
+            <small style={{ color: 'var(--color-text-muted)', marginTop: '0.25rem' }}>預設為 /home/使用者/backup/YYYYMM，可修改或點「瀏覽」選擇</small>
           </div>
-
-          <div className={UI_PRO_MAX.cardBody}>
-            <div className="space-y-8 max-w-3xl mx-auto">
-              <section>
-                <h3 className={UI_PRO_MAX.sectionTitle}>
-                  <FolderOpen className="w-5 h-5 text-slate-400" />
-                  遠端伺服器暫存目錄
-                </h3>
-                <div className="bg-slate-50 border border-slate-200 rounded-xl p-5">
-                  <div className="flex gap-3">
-                    <input
-                      className={UI_PRO_MAX.input}
-                      value={stagingPath}
-                      onChange={(e) => setStagingPath(e.target.value)}
-                      placeholder="例：/home/crownap/backup/202603"
-                    />
-                    <button 
-                      type="button" 
-                      onClick={() => setBrowseStaging(true)}
-                      disabled={stagingCreated}
-                      className={UI_PRO_MAX.buttonSecondary}
-                    >
-                      <FolderOpen className="w-4 h-4" />
-                      瀏覽
-                    </button>
-                  </div>
-                  <p className="mt-2 text-xs text-slate-500">預設為 /home/使用者/backup/YYYYMM，可修改或點擊瀏覽重新選擇。</p>
-                </div>
-              </section>
-
-              <section>
-                <h3 className={UI_PRO_MAX.sectionTitle}>
-                  <CalendarDays className="w-5 h-5 text-slate-400" />
-                  備份保留策略
-                </h3>
-                <div className="bg-slate-50 rounded-xl p-5 border border-slate-200">
-                  <label className="flex items-center gap-3 cursor-pointer group">
-                    <div className="relative flex items-center">
-                      <input
-                        type="checkbox"
-                        className="peer sr-only"
-                        checked={deleteOldBackup}
-                        onChange={(e) => setDeleteOldBackup(e.target.checked)}
-                      />
-                      <div className="w-5 h-5 border-2 border-slate-300 rounded peer-checked:bg-blue-600 peer-checked:border-blue-600 transition-colors flex items-center justify-center">
-                        <CheckCircle2 className="w-3.5 h-3.5 text-white opacity-0 peer-checked:opacity-100 transition-opacity" />
-                      </div>
-                    </div>
-                    <span className="text-sm font-medium text-slate-700 group-hover:text-slate-900 transition-colors">
-                      {deleteOldBackup ? '啟用自動清理 (刪除遠端舊備份)' : '保留所有遠端備份（不刪除）'}
-                    </span>
-                  </label>
-                  
-                  {deleteOldBackup && (
-                    <div className="mt-4 ml-8 flex items-center gap-3 animate-in slide-in-from-top-2">
-                      <label className="text-sm text-slate-600">保留期設定：</label>
-                      <select
-                        value={retentionMonths || 6}
-                        onChange={(e) => setRetentionMonths(Number(e.target.value))}
-                        className="bg-white border border-slate-300 text-slate-700 text-sm rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 block p-2 outline-none shadow-sm"
-                      >
-                        <option value={3}>保留 3 個月</option>
-                        <option value={6}>保留 6 個月</option>
-                        <option value={12}>保留 1 年</option>
-                        <option value={24}>保留 2 年</option>
-                      </select>
-                    </div>
-                  )}
-                </div>
-              </section>
-
-              <div className="flex flex-col sm:flex-row gap-4 pt-6 border-t border-slate-200 mt-6">
-                <button 
-                  onClick={createStagingDir} 
-                  disabled={stagingLoading || stagingCreated || !stagingPath.trim()}
-                  className={stagingCreated ? `${UI_PRO_MAX.buttonSmSecondary} bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100` : UI_PRO_MAX.buttonSmSecondary}
+          
+          <div style={{ marginBottom: '1.5rem', padding: '1rem', background: 'var(--color-bg)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontWeight: 500 }}>
+              <input
+                type="checkbox"
+                checked={deleteOldBackup}
+                onChange={(e) => setDeleteOldBackup(e.target.checked)}
+                style={{ width: '1rem', height: '1rem', accentColor: 'var(--color-primary)' }}
+              />
+              <span>
+                {deleteOldBackup ? '刪除遠端舊備份' : '保留遠端備份（不刪除）'}
+                {deleteOldBackup && <span style={{ color: 'var(--color-text-muted)', fontSize: '0.875rem', fontWeight: 400 }}>（範圍：/home/crownap/backup/）</span>}
+              </span>
+            </label>
+            
+            {deleteOldBackup && (
+              <div style={{ marginLeft: '1.5rem', marginTop: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <label style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>保留期：</label>
+                <select
+                  className="input-field"
+                  value={retentionMonths || 6}
+                  onChange={(e) => setRetentionMonths(Number(e.target.value))}
+                  style={{ width: 'auto', padding: '0.25rem 0.5rem' }}
                 >
-                  {stagingLoading ? <><Loader2 className="w-5 h-5 animate-spin"/> 建立中...</> : stagingCreated ? <><CheckCircle2 className="w-5 h-5"/> 暫存目錄已準備</> : <><FolderOpen className="w-5 h-5"/> 1. 建立暫存目錄</>}
-                </button>
-                <button 
-                  onClick={startBackup} 
-                  disabled={loading || !stagingCreated || !stagingPath.trim() || !nasPath.trim()}
-                  className={UI_PRO_MAX.buttonSmPrimary}
-                >
-                  {loading ? <><Loader2 className="w-5 h-5 animate-spin"/> 啟動中...</> : <><Play className="w-5 h-5 fill-current"/> 2. 開始執行備份</>}
-                </button>
+                  <option value={3}>3 個月</option>
+                  <option value={6}>6 個月</option>
+                  <option value={12}>1 年</option>
+                  <option value={24}>2 年</option>
+                </select>
               </div>
-              
-              {error && (
-                <div className={UI_PRO_MAX.alertErrorInline}>
-                  <div className={UI_PRO_MAX.alertErrorIconBox}>!</div>
-                  <span className="leading-relaxed whitespace-pre-wrap">{error}</span>
-                </div>
-              )}
-            </div>
+            )}
           </div>
+          
+          <div className="flex gap-4">
+            <button className="btn btn-secondary" style={{ flex: 1 }} onClick={createStagingDir} disabled={stagingLoading || stagingCreated || !stagingPath.trim()}>
+              {stagingLoading ? '建立中...' : stagingCreated ? '暫存目錄已建立' : '建立暫存目錄'}
+            </button>
+            <button className="btn btn-primary" style={{ flex: 1 }} onClick={startBackup} disabled={loading || !stagingCreated}>
+              {loading ? '啟動中...' : '開始備份'}
+            </button>
+          </div>
+          
+          {error && <div className="alert-error" style={{ marginBottom: 0 }}>{error}</div>}
         </div>
 
         {browseStaging && (
           <PathBrowserModal
-            title="選擇遠端暫存目錄"
+            title="瀏覽遠端暫存目錄"
             currentPath={stagingPath || '/'}
             mode="remote"
             onSelect={(path) => {
@@ -269,101 +223,99 @@ export function BackupProgress({
   const showReport = isComplete && report && !report.includes('（報告產生中）');
 
   return (
-    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div className={UI_PRO_MAX.card}>
-        <div className={UI_PRO_MAX.cardHeader}>
-          <div className="p-3 bg-blue-50 text-blue-600 rounded-2xl mb-4">
-            {done ? (backupFailed ? <XCircle className="w-8 h-8 text-red-500" /> : <CheckCircle2 className="w-8 h-8 text-emerald-500" />) : <Play className="w-8 h-8 ml-1" />}
+    <div>
+      <h2 style={{ marginBottom: '0.5rem' }}>備份進度</h2>
+      <p className="subtitle">正在執行備份作業，請稍候</p>
+      
+      <div className="card">
+        <div style={{ marginBottom: '1.5rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontWeight: 500 }}>
+            <span style={{ color: done ? (backupFailed ? 'var(--color-error-text)' : 'var(--color-success)') : 'var(--color-primary)' }}>
+              {done ? (backupFailed ? '備份失敗' : '備份完成') : '備份中...'}
+            </span>
+            <span>{percent}%</span>
           </div>
-          <h2 className={UI_PRO_MAX.cardTitle}>備份執行進度</h2>
-          <p className={UI_PRO_MAX.pSub}>
-            {done ? (backupFailed ? '備份過程中發生錯誤' : '備份作業已順利完成') : '系統正在處理備份作業中...'}
-          </p>
+          <div
+            style={{
+              height: '0.75rem',
+              background: 'var(--color-border)',
+              borderRadius: '999px',
+              overflow: 'hidden',
+            }}
+          >
+            <div
+              style={{
+                height: '100%',
+                width: `${percent}%`,
+                background: backupFailed ? 'var(--color-error-text)' : percent >= 100 ? 'var(--color-success)' : 'var(--color-primary)',
+                transition: 'width 0.3s ease',
+              }}
+            />
+          </div>
+          {currentMessage && (
+            <p style={{ margin: '0.75rem 0 0 0', fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>{currentMessage}</p>
+          )}
         </div>
-
-        <div className={UI_PRO_MAX.cardBody}>
-          <div className="max-w-4xl mx-auto space-y-6">
-            
-            {/* Progress Bar Section */}
-            <div className="bg-slate-50 border border-slate-200 rounded-xl p-6">
-              <div className="flex justify-between items-end mb-4">
-                <div>
-                  <div className="flex items-center gap-2 mb-1">
-                    {!done && <Loader2 className="w-4 h-4 text-blue-600 animate-spin" />}
-                    <span className={`font-medium ${done ? (backupFailed ? 'text-red-600' : 'text-emerald-600') : 'text-blue-700'}`}>
-                      {done ? (backupFailed ? '備份中斷' : '備份成功') : '執行中'}
-                    </span>
-                  </div>
-                  {currentMessage && (
-                    <p className="text-sm text-slate-600 font-medium">{currentMessage}</p>
-                  )}
-                </div>
-                <span className="text-3xl font-bold text-slate-800 tabular-nums tracking-tight">{percent}%</span>
-              </div>
-              
-              <div className="h-4 w-full bg-slate-200 rounded-full overflow-hidden shadow-inner">
-                <div
-                  className={`h-full rounded-full transition-all duration-500 ease-out ${backupFailed ? 'bg-red-500' : percent >= 100 ? 'bg-emerald-500' : 'bg-blue-500 relative overflow-hidden'}`}
-                  style={{ width: `${percent}%` }}
-                >
-                  {!done && !backupFailed && (
-                    <div className="absolute inset-0 bg-white/20 animate-[shimmer_2s_infinite]" style={{ backgroundImage: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent)', transform: 'skewX(-20deg)' }} />
-                  )}
-                </div>
-              </div>
-            </div>
-
-      {/* Terminal Logs */}
-      {operationLogs.length > 0 && (
-        <div className="animate-in slide-in-from-top-4">
-          <div className="flex items-center gap-2 mb-3">
-            <Terminal className="w-5 h-5 text-slate-700" />
-            <h3 className="font-semibold text-slate-800">作業日誌</h3>
-          </div>
-          <div className={UI_PRO_MAX.logContainer}>
-            <div ref={logContainerRef} className={UI_PRO_MAX.logContent}>
+        
+        {operationLogs.length > 0 && (
+          <div style={{ marginBottom: '1.5rem' }}>
+            <h3 style={{ fontSize: '1rem', marginBottom: '0.75rem' }}>作業日誌</h3>
+            <pre
+              style={{
+                whiteSpace: 'pre-wrap',
+                wordBreak: 'break-all',
+                background: '#1e1e1e',
+                color: '#d4d4d4',
+                padding: '1rem',
+                borderRadius: 'var(--radius-md)',
+                fontSize: '0.8125rem',
+                fontFamily: 'ui-monospace, monospace',
+                maxHeight: '320px',
+                overflowY: 'auto',
+                margin: 0,
+              }}
+            >
               {operationLogs.map((log, i) => (
-                <div key={i} className="mb-4 last:mb-0">
-                  <div className="text-emerald-400/90 font-semibold mb-1"># {log.label}</div>
-                  <div className="text-slate-300 break-all pl-2 border-l-2 border-slate-700">
-                    <span className="text-blue-400 select-none mr-2">$</span>
-                    <span>{log.command}</span>
-                  </div>
+                <div key={i} style={{ marginBottom: '0.5rem' }}>
+                  <span style={{ color: '#6a9955' }}>{'# '}{log.label}</span>
+                  <br />
+                  <span style={{ color: '#9cdcfe' }}>$ </span>
+                  <span>{log.command}</span>
                   {log.output != null && log.output !== '' && (
-                    <div className="text-amber-200/80 mt-1.5 whitespace-pre-wrap break-all pl-6">
-                      {log.output}
-                    </div>
+                    <>
+                      <br />
+                      <span style={{ color: '#ce9178' }}>{log.output}</span>
+                    </>
                   )}
                 </div>
               ))}
-            </div>
+            </pre>
           </div>
-        </div>
-      )}
-
-      {/* Report */}
-      {showReport && (
-        <div className="animate-in slide-in-from-top-4 pt-4">
-          <div className={UI_PRO_MAX.alertSuccess + " mb-4"}>
-            <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
-            <p className="font-medium text-emerald-900">作業報告已產生</p>
-          </div>
-          <div className="bg-slate-50 border border-slate-200 rounded-xl p-6 shadow-sm">
-            <pre className="whitespace-pre-wrap font-sans text-sm text-slate-700 leading-relaxed">
+        )}
+        
+        {showReport && (
+          <div>
+            <h3 style={{ fontSize: '1rem', marginBottom: '0.75rem' }}>完成報告</h3>
+            <pre
+              style={{
+                whiteSpace: 'pre-wrap',
+                background: 'var(--color-bg)',
+                padding: '1rem',
+                borderRadius: 'var(--radius-md)',
+                border: '1px solid var(--color-border)',
+                fontSize: '0.875rem',
+                fontFamily: 'ui-monospace, monospace',
+                margin: 0,
+                overflowX: 'auto',
+              }}
+            >
               {report}
             </pre>
           </div>
-        </div>
-      )}
-      
-      {isComplete && !showReport && report && (
-        <div className="flex items-center justify-center gap-3 text-slate-500 py-8 bg-slate-50 rounded-xl border border-dashed border-slate-200">
-          <Loader2 className="w-5 h-5 animate-spin" />
-          <span className="font-medium">系統正在彙整備份報告，請稍候...</span>
-        </div>
-      )}
-          </div>
-        </div>
+        )}
+        {isComplete && !showReport && report && (
+          <p style={{ color: 'var(--color-text-muted)', fontSize: '0.875rem' }}>報告產生中...</p>
+        )}
       </div>
     </div>
   );
