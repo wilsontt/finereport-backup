@@ -161,9 +161,16 @@ export function PathSelector({
                 新增自訂來源
               </button>
             </div>
-            <ul style={{ listStyle: 'none', padding: 0, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            {/* 
+              遠端來源列表：
+              使用 index.css 中的 grid-2-col 類別，
+              在 1024px 寬度內呈現 2 欄，並在手機版（<640px）自動切換為單欄，避免畫面擠壓。
+              設定最小寬度，空間不夠時自動換行（推薦的進階響應式寫法）
+            */}
+            <ul className="grid-2-col" 
+                  style={{ listStyle: 'none', padding: 0, gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))' }}>
               {sources.map((s) => (
-                <li key={s.id} style={{ padding: '0.75rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', backgroundColor: '#fff' }}>
+                <li key={s.id} style={{ padding: '1rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', backgroundColor: '#fff', display: 'flex', flexDirection: 'column' }}>
                   {editingSource?.id === s.id ? (
                     <SourceEditForm
                       label={editLabel}
@@ -178,19 +185,22 @@ export function PathSelector({
                       onBrowseDestPath={() => setBrowseTarget('editDestPath')}
                     />
                   ) : (
-                    <div className="flex justify-between items-center">
-                      <div style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        <div style={{ fontWeight: 600, marginBottom: '0.25rem' }}>{s.label}</div>
-                        <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
+                    // 卡片內容容器：設定 height: 100% 讓內容填滿卡片高度
+                    <div className="flex" style={{ flexDirection: 'column', height: '100%' }}>
+                      <div style={{ flex: 1, marginBottom: '1rem' }}>
+                        <div style={{ fontWeight: 600, fontSize: '1.125rem', marginBottom: '0.5rem' }}>{s.label}</div>
+                        {/* 針對路徑文字加上 wordBreak: 'break-all'，確保長路徑能自動換行 */}
+                        <div style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)', display: 'flex', flexDirection: 'column', gap: '0.25rem', wordBreak: 'break-all' }}>
                           <div>來源: {s.sourcePath}</div>
                           <div>目的: {s.destPath}</div>
                         </div>
                       </div>
-                      <div className="flex gap-2">
-                        <button className="btn btn-secondary" style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }} type="button" onClick={() => startEdit(s)} disabled={isBrowsing}>
+                      {/* 操作按鈕區：使用 marginTop: 'auto' 將按鈕推至卡片最底部對齊 */}
+                      <div className="flex gap-2" style={{ justifyContent: 'flex-end', marginTop: 'auto' }}>
+                        <button className="btn btn-secondary" style={{ padding: '0.25rem 0.75rem', fontSize: '0.875rem' }} type="button" onClick={() => startEdit(s)} disabled={isBrowsing}>
                           編輯
                         </button>
-                        <button className="btn btn-secondary" style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem', color: 'var(--color-error-text)', borderColor: '#fecaca' }} type="button" onClick={() => removeSource(s.id)} disabled={isBrowsing}>
+                        <button className="btn btn-secondary" style={{ padding: '0.25rem 0.75rem', fontSize: '0.875rem', color: 'var(--color-error-text)', borderColor: '#fecaca' }} type="button" onClick={() => removeSource(s.id)} disabled={isBrowsing}>
                           移除
                         </button>
                       </div>

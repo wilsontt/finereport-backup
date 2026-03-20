@@ -6,9 +6,11 @@ import { CredentialForm } from './components/CredentialForm';
 import { HumanVerification } from './components/HumanVerification';
 import { PathSelector } from './components/PathSelector';
 import { BackupProgress } from './components/BackupProgress';
+import { StepIndicator } from './components/StepIndicator';
 import type { BackupSource } from './types';
+import logoUrl from './assets/CROWN_logo.png';
 
-type Step = 'credentials' | 'human' | 'paths' | 'backup';
+export type Step = 'credentials' | 'human' | 'paths' | 'backup';
 
 function App() {
   const [step, setStep] = useState<Step>('credentials');
@@ -29,10 +31,20 @@ function App() {
 
   return (
     <div style={{ minHeight: '100vh', padding: '2rem 1rem' }}>
-      <div style={{ maxWidth: 768, margin: '0 auto' }}>
-        <h1 style={{ textAlign: 'center', marginBottom: '2rem', color: 'var(--color-primary)' }}>
-          FineReport 備份工具
-        </h1>
+      <div style={{ maxWidth: 1024, margin: '0 auto' }}>
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '1rem' }}>
+            <img 
+              src={logoUrl}
+              alt="Company Logo" 
+              style={{ height: '40px', marginRight: '10px' }} 
+            />
+            <h1 style={{ margin: 0, color: 'var(--color-primary)' }}>
+              FineReport 備份工具
+            </h1>
+          </div>
+          <StepIndicator currentStep={step} />
+        </div>
         {step === 'credentials' && (
           <CredentialForm onDone={onCredentialsDone} />
         )}
