@@ -31,9 +31,9 @@ function App() {
 
   return (
     <>
-      <TopTitleNav />
       <div style={{ minHeight: '100vh', padding: '2rem 1rem' }}>
         <div style={{ maxWidth: 1024, margin: '0 auto' }}>
+          <TopTitleNav />
           <StepIndicator currentStep={step} />
           {step === 'credentials' && (
             <CredentialForm onDone={onCredentialsDone} />

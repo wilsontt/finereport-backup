@@ -11,7 +11,7 @@ import { APP_VERSION } from '../constants/appVersion';
 export function TopTitleNav(): ReactElement {
   return (
     <PortalTopNav
-      rowClassName="max-w-4xl mx-auto"
+      rowClassName="max-w-5xl mx-auto"
       left={<CrownBrand logoSrc={logoUrl} title="海灣國際" subtitle="" />}
       center={
         <div className="flex flex-col items-center justify-center gap-0.5 text-center min-w-0 px-2">
