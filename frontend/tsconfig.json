@@ -1,5 +1,13 @@
 {
   "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@shared-ui/*": [
+        "0.shared-ui/*",
+        "../0.shared-ui/*",
+        "../../0.shared-ui/*"
+      ]
+    },
     "target": "ES2020",
     "useDefineForClassFields": true,
     "lib": ["ES2020", "DOM", "DOM.Iterable"],
@@ -16,6 +24,38 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src"],
+  "include": [
+    "src",
+    /* crown-brand */
+    "0.shared-ui/crown-brand/**/*.ts",
+    "0.shared-ui/crown-brand/**/*.tsx",
+    "../0.shared-ui/crown-brand/**/*.ts",
+    "../0.shared-ui/crown-brand/**/*.tsx",
+    "../../0.shared-ui/crown-brand/**/*.ts",
+    "../../0.shared-ui/crown-brand/**/*.tsx",
+    /* portal-nav */
+    "0.shared-ui/portal-nav/**/*.ts",
+    "0.shared-ui/portal-nav/**/*.tsx",
+    "../0.shared-ui/portal-nav/**/*.ts",
+    "../0.shared-ui/portal-nav/**/*.tsx",
+    "../../0.shared-ui/portal-nav/**/*.ts",
+    "../../0.shared-ui/portal-nav/**/*.tsx",
+    /* calendar-icon（具名列入，排除 Examples.tsx） */
+    "0.shared-ui/calendar-icon/CalendarIcon.tsx",
+    "0.shared-ui/calendar-icon/DateTimeDisplay.tsx",
+    "0.shared-ui/calendar-icon/useCurrentTime.ts",
+    "0.shared-ui/calendar-icon/cn.ts",
+    "0.shared-ui/calendar-icon/index.ts",
+    "../0.shared-ui/calendar-icon/CalendarIcon.tsx",
+    "../0.shared-ui/calendar-icon/DateTimeDisplay.tsx",
+    "../0.shared-ui/calendar-icon/useCurrentTime.ts",
+    "../0.shared-ui/calendar-icon/cn.ts",
+    "../0.shared-ui/calendar-icon/index.ts",
+    "../../0.shared-ui/calendar-icon/CalendarIcon.tsx",
+    "../../0.shared-ui/calendar-icon/DateTimeDisplay.tsx",
+    "../../0.shared-ui/calendar-icon/useCurrentTime.ts",
+    "../../0.shared-ui/calendar-icon/cn.ts",
+    "../../0.shared-ui/calendar-icon/index.ts"
+  ],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

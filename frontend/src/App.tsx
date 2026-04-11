@@ -7,8 +7,8 @@ import { HumanVerification } from './components/HumanVerification';
 import { PathSelector } from './components/PathSelector';
 import { BackupProgress } from './components/BackupProgress';
 import { StepIndicator } from './components/StepIndicator';
+import { TopTitleNav } from './components/TopTitleNav';
 import type { BackupSource } from './types';
-import logoUrl from './assets/CROWN_logo.png';
 
 export type Step = 'credentials' | 'human' | 'paths' | 'backup';
 
@@ -30,49 +30,40 @@ function App() {
   };
 
   return (
-    <div style={{ minHeight: '100vh', padding: '2rem 1rem' }}>
-      <div style={{ maxWidth: 1024, margin: '0 auto' }}>
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '1rem' }}>
-            <img 
-              src={logoUrl}
-              alt="Company Logo" 
-              style={{ height: '40px', marginRight: '10px' }} 
-            />
-            <h1 style={{ margin: 0, color: 'var(--color-primary)' }}>
-              FineReport 備份工具
-            </h1>
-          </div>
+    <>
+      <TopTitleNav />
+      <div style={{ minHeight: '100vh', padding: '2rem 1rem' }}>
+        <div style={{ maxWidth: 1024, margin: '0 auto' }}>
           <StepIndicator currentStep={step} />
+          {step === 'credentials' && (
+            <CredentialForm onDone={onCredentialsDone} />
+          )}
+          {step === 'human' && (
+            <HumanVerification
+              verifiedNasPath={verifiedNasPath}
+              onDone={onHumanDone}
+            />
+          )}
+          {step === 'paths' && (
+            <PathSelector
+              onDone={onPathsDone}
+              sources={sources}
+              setSources={setSources}
+              nasPath={nasPath}
+              setNasPath={setNasPath}
+            />
+          )}
+          {step === 'backup' && (
+            <BackupProgress
+              backupId={backupId}
+              onStart={onBackupStart}
+              sources={sources}
+              nasPath={nasPath}
+            />
+          )}
         </div>
-        {step === 'credentials' && (
-          <CredentialForm onDone={onCredentialsDone} />
-        )}
-        {step === 'human' && (
-          <HumanVerification
-            verifiedNasPath={verifiedNasPath}
-            onDone={onHumanDone}
-          />
-        )}
-        {step === 'paths' && (
-          <PathSelector
-            onDone={onPathsDone}
-            sources={sources}
-            setSources={setSources}
-            nasPath={nasPath}
-            setNasPath={setNasPath}
-          />
-        )}
-        {step === 'backup' && (
-          <BackupProgress
-            backupId={backupId}
-            onStart={onBackupStart}
-            sources={sources}
-            nasPath={nasPath}
-          />
-        )}
       </div>
-    </div>
+    </>
   );
 }
 

@@ -1,3 +1,9 @@
+/* Tailwind CSS v4 — 須於 @tailwindcss/vite 插件載入後方可使用工具類別 */
+@import "tailwindcss";
+
+/* 掃描共用元件目錄，確保 PortalTopNav 的 utilities 進入 bundle */
+@source "../../../0.shared-ui";
+
 :root {
   --color-primary: #2563eb;
   --color-primary-hover: #1d4ed8;
