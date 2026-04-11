@@ -2,12 +2,14 @@
  * FineReport 備份工具 — 主應用
  */
 import { useState } from 'react';
+import { PortalFooter } from '@shared-ui/portal-footer';
 import { CredentialForm } from './components/CredentialForm';
 import { HumanVerification } from './components/HumanVerification';
 import { PathSelector } from './components/PathSelector';
 import { BackupProgress } from './components/BackupProgress';
 import { StepIndicator } from './components/StepIndicator';
 import { TopTitleNav } from './components/TopTitleNav';
+import { APP_VERSION } from './constants/appVersion';
 import type { BackupSource } from './types';
 
 export type Step = 'credentials' | 'human' | 'paths' | 'backup';
@@ -30,8 +32,8 @@ function App() {
   };
 
   return (
-    <>
-      <div style={{ minHeight: '100vh', padding: '2rem 1rem' }}>
+    <div className="flex min-h-screen flex-col">
+      <div className="flex-1" style={{ padding: '2rem 1rem' }}>
         <div style={{ maxWidth: 1024, margin: '0 auto' }}>
           <TopTitleNav />
           <StepIndicator currentStep={step} />
@@ -61,9 +63,13 @@ function App() {
               nasPath={nasPath}
             />
           )}
+          <PortalFooter
+            leading={<span>© 2026 海灣國際 · FineReport 備份工具</span>}
+            trailing={<span>v{APP_VERSION}</span>}
+          />
         </div>
       </div>
-    </>
+    </div>
   );
 }
 

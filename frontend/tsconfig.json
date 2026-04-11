@@ -55,7 +55,14 @@
     "../../0.shared-ui/calendar-icon/DateTimeDisplay.tsx",
     "../../0.shared-ui/calendar-icon/useCurrentTime.ts",
     "../../0.shared-ui/calendar-icon/cn.ts",
-    "../../0.shared-ui/calendar-icon/index.ts"
+    "../../0.shared-ui/calendar-icon/index.ts",
+    /* portal-footer */
+    "0.shared-ui/portal-footer/**/*.ts",
+    "0.shared-ui/portal-footer/**/*.tsx",
+    "../0.shared-ui/portal-footer/**/*.ts",
+    "../0.shared-ui/portal-footer/**/*.tsx",
+    "../../0.shared-ui/portal-footer/**/*.ts",
+    "../../0.shared-ui/portal-footer/**/*.tsx"
   ],
   "references": [{ "path": "./tsconfig.node.json" }]
 }
