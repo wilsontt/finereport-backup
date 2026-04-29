@@ -170,12 +170,37 @@ Session ID 以 `X-Session-Id` 標頭傳遞，儲存於瀏覽器 `sessionStorage`
 # 後端（port 3000）
 docker build -f Dockerfile.backend -t finereport-backup-backend .
 
-# 前端（nginx，port 80）
+# 前端（nginx，port 80/443）
 docker build -f Dockerfile.frontend -t finereport-backup-frontend .
 ```
 
 > 前端 Dockerfile 需要 Node **22**（Vite 7 的限制）。  
 > 若部署後靜態資源出現 403，請確認 Nginx 階段有執行 `chmod -R a+r /usr/share/nginx/html`。
+
+### HTTPS（Docker 單機最小配置）
+
+前端容器預設採用：
+- `80`：自動導向 HTTPS
+- `443`：TLS 服務（憑證路徑固定為 `/etc/nginx/certs/fullchain.pem` 與 `/etc/nginx/certs/privkey.pem`）
+
+請以 volume 掛載憑證，不要把私鑰打包進 image：
+
+```bash
+docker run -d --name finereport-backup-frontend \
+  -p 80:80 -p 443:443 \
+  -v /path/to/certs:/etc/nginx/certs:ro \
+  finereport-backup-frontend
+```
+
+檢查指令：
+
+```bash
+# HTTP 是否 301 到 HTTPS
+curl -I http://<host>/finereport-backup/
+
+# HTTPS 是否可服務（自簽章可先加 -k）
+curl -k -I https://<host>/finereport-backup/
+```
 
 ---
 

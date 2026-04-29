@@ -1,0 +1,23 @@
+---
+description: 防止非 Secure Context 觸發 randomUUID 相容性錯誤
+alwaysApply: true
+---
+
+# Web Crypto 相容性防呆（強制）
+
+## 目的
+- 避免在 `http + IP`、舊環境或非 Secure Context 下出現 `crypto.randomUUID is not a function`。
+
+## 強制規則
+- 前端程式不得直接假設 `crypto.randomUUID()` 一定可用。
+- 產生 UUID 時必須使用「能力檢查 + fallback」：
+  - 先判斷 `typeof crypto.randomUUID === 'function'`
+  - 不可用時改用 `crypto.getRandomValues()` 產生 RFC4122 v4 UUID。
+- 若需求依賴 Web Crypto 僅安全來源可用的能力，必須在變更說明同步標註：
+  - `localhost` 可用不代表 `http://<ip>` 可用
+  - Docker 部署需提供 HTTPS 或 fallback
+
+## 變更前檢查（必做）
+- 搜尋是否新增/修改 `randomUUID(` 用法。
+- 若有，確認同檔案具備 fallback 實作或已明確限制 HTTPS 執行環境。
+- 更新 `README.md` 的部署/相容性段落（若行為或前提有變動）。

@@ -3,10 +3,21 @@
  */
 const BASE = '/finereport-backup/api/backup';
 
+function generateUUID(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  // 回退：非 Secure Context（HTTP + IP）下手動生成 UUID v4
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
+  });
+}
+
 function getSessionId(): string {
   let id = sessionStorage.getItem('finereport-session-id');
   if (!id) {
-    id = crypto.randomUUID();
+    id = generateUUID();
     sessionStorage.setItem('finereport-session-id', id);
   }
   return id;
