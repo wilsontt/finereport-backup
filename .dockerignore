@@ -1,0 +1,51 @@
+# 4.FineReport備份工具/.dockerignore
+# 適用 service：finereport-backup-frontend、finereport-backup-backend（build.context 為本目錄）
+
+# === IDE / AI 工具 ===
+.cursor/
+.cursorignore
+.gemini/
+.vscode/
+.idea/
+.specify/
+.claude/
+CLAUDE.md
+
+# === VCS / OS ===
+.git/
+.gitignore
+.dockerignore
+.DS_Store
+._*
+*.log
+
+# === Frontend 產物 ===
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/coverage/
+
+# === Backend 產物 ===
+backend/node_modules/
+backend/dist/
+backend/build/
+backend/coverage/
+
+# === 環境檔 ===
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
+
+# === 文件 ===
+1.docs/
+docs/
+README.md
+**/README.md
+
+# === 打包／壓縮檔 ===
+*.tar.gz
+*.tgz
+*.zip
