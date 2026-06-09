@@ -159,7 +159,10 @@ NAS 驗證採兩段式策略（見 `backend/src/services/nasService.ts` 的 `ver
 1. **先嘗試掛載**：macOS 用 `mount_smbfs`、Linux 用 `mount -t cifs`。
 2. **掛載失敗則退回 `smbclient`**：若此時系統找不到 `smbclient` 可執行檔，Node.js `spawn` 會回報 `ENOENT`，後端轉成錯誤碼 `ERR_NAS_SMBCLIENT_NOT_FOUND`，前端顯示安裝指引。
 
-常見根因不是「沒裝」，而是 **Node.js 程序的 `PATH` 不含 smbclient 所在目錄**。以 Homebrew 安裝時，`smbclient` 位於 `/opt/homebrew/bin`（Apple Silicon）或 `/usr/local/bin`（Intel）；但以 launchd／systemd／Docker 啟動的後端，`PATH` 常不含這些目錄，導致「明明裝了卻還是 ENOENT」。
+常見根因有二：
+
+1. **Docker 部署：smbclient 要裝在「容器」內，不是 host**。後端跑在容器中，即使 host（如 Ubuntu）已 `apt-get install smbclient` 也無效——容器映像若沒裝，照樣 ENOENT。本專案 `Dockerfile.backend` 已內建安裝（見下方〈Docker 部署情境〉）。
+2. **`PATH` 不含 smbclient 所在目錄**。以 Homebrew 安裝時，`smbclient` 位於 `/opt/homebrew/bin`（Apple Silicon）或 `/usr/local/bin`（Intel）；但以 launchd／systemd 啟動的後端，`PATH` 常不含這些目錄，導致「明明裝了卻還是 ENOENT」。此時用 `SMBCLIENT_PATH` 指定絕對路徑即可。
 
 ### 安裝指令
 
@@ -182,6 +185,32 @@ echo "SMBCLIENT_PATH=/opt/homebrew/bin/smbclient" >> backend/.env
 ```
 
 > 後端會依序解析：`SMBCLIENT_PATH` → 常見路徑（`/opt/homebrew/bin`、`/usr/local/bin`、`/usr/bin`、`/bin`）→ 退回沿用 `PATH` 的 `smbclient`。解析邏輯見 `resolveSmbclientBin()`（`backend/src/services/nasService.ts`）。
+
+### Docker 部署情境（最常見）
+
+後端容器 **必須** 內含 smbclient。`Dockerfile.backend` 採 `node:18-bookworm-slim` 並安裝 `smbclient`、`cifs-utils`：
+
+```dockerfile
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends smbclient cifs-utils \
+  && rm -rf /var/lib/apt/lists/*
+```
+
+> 改用 Debian slim（非 Alpine）的原因：NAS 分享名稱含中文（如 `KE20.4.軟硬體系統備份記錄`），Alpine 的 musl libc 對 CJK 編碼處理易出問題；Debian glibc 與 host（Ubuntu）一致，最可靠。
+
+更版（在 `enterprise-portal/deploy`）：
+
+```bash
+cd /opt/apps/enterprise-portal/deploy
+docker compose build --no-cache finereport-backup-backend
+docker compose up -d --force-recreate finereport-backup-backend
+
+# 驗證容器內已可呼叫 smbclient
+docker compose exec finereport-backup-backend smbclient --version
+docker compose logs finereport-backup-backend | grep "啟動檢測"
+```
+
+> 註：`mount -t cifs` 若要在容器內實際掛載，容器需具備 `CAP_SYS_ADMIN`（或 `privileged`）權限；若無，掛載會失敗並自動退回 `smbclient` 流程，備份仍可正常運作。
 
 ### 啟動自我檢測
 
@@ -221,16 +250,61 @@ smbclient -L //10.9.82.22 -U <使用者>
 
 ## Docker 部署
 
+### 獨立建置（本機驗證）
+
 ```bash
-# 後端（port 3000）
+# 後端（在 4.FineReport備份工具 目錄內）
 docker build -f Dockerfile.backend -t finereport-backup-backend .
 
-# 前端（nginx，僅 http:80；build context 須為 repo 根，見 deploy/docker-compose.yml）
+# 前端（build context 須為 enterprise-portal 根目錄，含 0.shared-ui）
 cd ..
 docker build -f 4.FineReport備份工具/Dockerfile.frontend -t finereport-backup-frontend .
 ```
 
+### 企業入口網站 docker-compose（重要）
+
+前後端 **build 設定不可混用**。常見錯誤：後端 service 誤指向前端 Dockerfile，建置時出現：
+
+```text
+Step 1/15 : FROM node:22-alpine AS builder
+COPY failed: no source files were specified
+```
+
+這代表 `finereport-backup-backend` 用了 `Dockerfile.frontend`（`node:22-alpine` + `COPY 4.FineReport備份工具/frontend/...`），而非 `Dockerfile.backend`（`node:18-bookworm-slim` + `COPY backend/...`）。
+
+**正確設定**（完整範例見 `deploy/docker-compose.finereport-backup.example.yml`）：
+
+```yaml
+services:
+  finereport-backup-frontend:
+    build:
+      context: ..                                          # enterprise-portal 根目錄
+      dockerfile: 4.FineReport備份工具/Dockerfile.frontend
+
+  finereport-backup-backend:
+    build:
+      context: ../4.FineReport備份工具                      # 僅本專案目錄
+      dockerfile: Dockerfile.backend
+```
+
+在伺服器上修正後重建：
+
+```bash
+cd /opt/apps/enterprise-portal/deploy
+
+# 確認後端 service 的 dockerfile 是否正確
+grep -A6 'finereport-backup-backend' docker-compose.yml
+
+docker compose build --no-cache finereport-backup-backend
+docker compose up -d --force-recreate finereport-backup-backend
+
+# 驗證容器內 smbclient
+docker compose exec finereport-backup-backend smbclient --version
+docker compose logs finereport-backup-backend | grep "啟動檢測"
+```
+
 > 前端 Dockerfile 需要 Node **22**（Vite 7 的限制）。  
+> 後端 Dockerfile 使用 **Debian bookworm-slim**，並內建 `smbclient`、`cifs-utils`。  
 > `0.shared-ui` 在映像內複製至 `frontend/0.shared-ui`，讓 `tsc` 能自 `frontend/node_modules` 解析型別（與出勤系統相同）。  
 > 若部署後靜態資源出現 403，請確認 Nginx 階段有執行 `chmod -R a+r /usr/share/nginx/html`。
 

@@ -1,5 +1,15 @@
 # FineReport 備份工具後端
-FROM node:18-alpine
+# 使用 Debian slim（非 Alpine）：避免 musl libc 對中文（CJK）分享名稱的編碼問題，
+# 並與 host（Ubuntu）環境一致，確保 smbclient 行為可靠。
+FROM node:18-bookworm-slim
+
+# NAS 操作必要的系統套件：
+#   smbclient   — 瀏覽/建立目錄/備援上傳（spawn 呼叫）
+#   cifs-utils  — mount -t cifs 掛載（容器需 CAP_SYS_ADMIN 才能實際掛載，
+#                 否則會自動退回 smbclient 流程）
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends smbclient cifs-utils \
+  && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 COPY backend/package*.json ./

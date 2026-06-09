@@ -1,0 +1,31 @@
+# FineReport 備份工具 — docker-compose 服務片段（範例）
+#
+# 用法：將以下兩段 service 合併至 enterprise-portal/deploy/docker-compose.yml。
+# 注意：前後端的 build.context 不同，不可共用同一個 dockerfile。
+#
+#   finereport-backup-frontend  → context 為 enterprise-portal 根目錄（需含 0.shared-ui）
+#   finereport-backup-backend   → context 為 4.FineReport備份工具 目錄
+
+services:
+  finereport-backup-frontend:
+    build:
+      # enterprise-portal 根目錄（含 4.FineReport備份工具/ 與 0.shared-ui/）
+      context: ..
+      dockerfile: 4.FineReport備份工具/Dockerfile.frontend
+    container_name: enterprise-finereport-backup-frontend
+    restart: unless-stopped
+    networks:
+      - portal-network
+
+  finereport-backup-backend:
+    build:
+      # 僅 4.FineReport備份工具 目錄（Dockerfile.backend 內 COPY backend/...）
+      context: ../4.FineReport備份工具
+      dockerfile: Dockerfile.backend
+    container_name: enterprise-finereport-backup-backend
+    restart: unless-stopped
+    networks:
+      - portal-network
+    # 可選：若 smbclient 不在預設 PATH，指定絕對路徑
+    # environment:
+    #   SMBCLIENT_PATH: /usr/bin/smbclient
