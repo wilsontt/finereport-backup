@@ -146,6 +146,61 @@ Session ID 以 `X-Session-Id` 標頭傳遞，儲存於瀏覽器 `sessionStorage`
 
 **後端主機系統需求**：`smbclient`、`mount_smbfs`（macOS）或 `mount -t cifs`（Linux）。
 
+> `smbclient` 為**必要元件**：NAS 瀏覽、建立目錄、smbclient 備援上傳皆依賴它。詳見下方〈smbclient 安裝與疑難排解〉。
+
+---
+
+## smbclient 安裝與疑難排解
+
+### 為什麼會出現「smbclient 未安裝」？
+
+NAS 驗證採兩段式策略（見 `backend/src/services/nasService.ts` 的 `verifyNas`）：
+
+1. **先嘗試掛載**：macOS 用 `mount_smbfs`、Linux 用 `mount -t cifs`。
+2. **掛載失敗則退回 `smbclient`**：若此時系統找不到 `smbclient` 可執行檔，Node.js `spawn` 會回報 `ENOENT`，後端轉成錯誤碼 `ERR_NAS_SMBCLIENT_NOT_FOUND`，前端顯示安裝指引。
+
+常見根因不是「沒裝」，而是 **Node.js 程序的 `PATH` 不含 smbclient 所在目錄**。以 Homebrew 安裝時，`smbclient` 位於 `/opt/homebrew/bin`（Apple Silicon）或 `/usr/local/bin`（Intel）；但以 launchd／systemd／Docker 啟動的後端，`PATH` 常不含這些目錄，導致「明明裝了卻還是 ENOENT」。
+
+### 安裝指令
+
+| 平台 | 指令 |
+|------|------|
+| macOS（Homebrew） | `brew install samba` |
+| Debian / Ubuntu | `sudo apt-get update && sudo apt-get install -y smbclient cifs-utils` |
+| RHEL / CentOS | `sudo yum install -y samba-client cifs-utils` |
+
+### 環境變數設定（解決 PATH 問題）
+
+後端支援以環境變數 **`SMBCLIENT_PATH`** 指定 `smbclient` 的絕對路徑，優先於自動偵測。若已安裝卻仍報錯，請先確認路徑再設定：
+
+```bash
+# 1. 確認 smbclient 絕對路徑
+which smbclient        # 例如 /opt/homebrew/bin/smbclient
+
+# 2. 於後端 .env 設定（或部署環境變數）
+echo "SMBCLIENT_PATH=/opt/homebrew/bin/smbclient" >> backend/.env
+```
+
+> 後端會依序解析：`SMBCLIENT_PATH` → 常見路徑（`/opt/homebrew/bin`、`/usr/local/bin`、`/usr/bin`、`/bin`）→ 退回沿用 `PATH` 的 `smbclient`。解析邏輯見 `resolveSmbclientBin()`（`backend/src/services/nasService.ts`）。
+
+### 啟動自我檢測
+
+後端啟動時會自動檢測 smbclient 並輸出日誌：
+
+```
+[啟動檢測] smbclient 可用：/opt/homebrew/bin/smbclient
+# 或
+[啟動檢測] 警告：找不到 smbclient，NAS 瀏覽／建立目錄／上傳將失敗。...
+```
+
+### 驗證安裝是否生效
+
+```bash
+smbclient -L //10.9.82.22 -U <使用者>
+```
+
+能列出共用清單即代表 `smbclient` 可正常被呼叫，重新整理頁面再驗證 NAS 即可。
+
 ---
 
 ## 共用 UI（`0.shared-ui`）接入
@@ -170,11 +225,13 @@ Session ID 以 `X-Session-Id` 標頭傳遞，儲存於瀏覽器 `sessionStorage`
 # 後端（port 3000）
 docker build -f Dockerfile.backend -t finereport-backup-backend .
 
-# 前端（nginx，僅 http:80）
-docker build -f Dockerfile.frontend -t finereport-backup-frontend .
+# 前端（nginx，僅 http:80；build context 須為 repo 根，見 deploy/docker-compose.yml）
+cd ..
+docker build -f 4.FineReport備份工具/Dockerfile.frontend -t finereport-backup-frontend .
 ```
 
 > 前端 Dockerfile 需要 Node **22**（Vite 7 的限制）。  
+> `0.shared-ui` 在映像內複製至 `frontend/0.shared-ui`，讓 `tsc` 能自 `frontend/node_modules` 解析型別（與出勤系統相同）。  
 > 若部署後靜態資源出現 403，請確認 Nginx 階段有執行 `chmod -R a+r /usr/share/nginx/html`。
 
 ### 企業入口網站整合部署注意事項

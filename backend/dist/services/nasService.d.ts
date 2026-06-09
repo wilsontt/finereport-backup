@@ -1,3 +1,8 @@
+export declare function resolveSmbclientBin(): string;
+/**
+ * 檢查 smbclient 是否可用（供啟動時自我檢測 / 健康檢查使用）
+ */
+export declare function isSmbclientAvailable(): boolean;
 export interface NasCredentials {
     host: string;
     username: string;

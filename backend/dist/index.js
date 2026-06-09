@@ -7,6 +7,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import dotenv from 'dotenv';
 import { backupRouter } from './routes/backup.js';
+import { isSmbclientAvailable, resolveSmbclientBin } from './services/nasService.js';
 dotenv.config();
 const app = express();
 const PORT = process.env.PORT ?? 3000;
@@ -37,6 +38,14 @@ app.use((req, res) => {
 });
 app.listen(PORT, () => {
     console.log(`FineReport 備份 API 已啟動，port: ${PORT}`);
+    // 啟動時自我檢測 smbclient，缺少時提前警告，避免使用者驗證 NAS 才發現
+    if (isSmbclientAvailable()) {
+        console.log(`[啟動檢測] smbclient 可用：${resolveSmbclientBin()}`);
+    }
+    else {
+        console.warn('[啟動檢測] 警告：找不到 smbclient，NAS 瀏覽／建立目錄／上傳將失敗。' +
+            '請安裝 samba/smbclient，或設定環境變數 SMBCLIENT_PATH 指向其絕對路徑。');
+    }
 });
 export default app;
 //# sourceMappingURL=index.js.map

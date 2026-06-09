@@ -10,7 +10,7 @@ import { spawn } from 'child_process';
 import SftpClient from 'ssh2-sftp-client';
 import { execWithSudo } from './sshService.js';
 import { fileURLToPath } from 'url';
-import { mountNas, unmountNas, createNasDirectory } from './nasService.js';
+import { mountNas, unmountNas, createNasDirectory, resolveSmbclientBin } from './nasService.js';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SMB_CONF_PATH = path.join(__dirname, '..', '..', 'smb.conf');
 async function ensureNasPath(creds, fullPath) {
@@ -47,7 +47,7 @@ async function uploadDirViaSmbclient(creds, targetPath, localDir, onFileProgress
         const cdEsc = cdPath.replace(/"/g, '\\"');
         const localEsc = f.localPath.replace(/"/g, '\\"');
         const putCmd = `cd "${cdEsc}"; put "${localEsc}" "${filePart}"`;
-        const proc = spawn('smbclient', [...args, '-c', putCmd], { stdio: ['ignore', 'pipe', 'pipe'] });
+        const proc = spawn(resolveSmbclientBin(), [...args, '-c', putCmd], { stdio: ['ignore', 'pipe', 'pipe'] });
         await new Promise((resolve, reject) => {
             let stderr = '';
             proc.stderr?.on('data', (d) => { stderr += d.toString(); });

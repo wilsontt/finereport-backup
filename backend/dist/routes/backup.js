@@ -19,6 +19,15 @@ const startBackupSchema = {
     retentionMonths: (v) => typeof v === 'number',
 };
 export const backupRouter = Router();
+/**
+ * 依後端執行平台組出 smbclient 安裝指引，避免一律顯示 macOS 的 brew 指令
+ */
+function smbclientInstallHint() {
+    if (process.platform === 'darwin') {
+        return 'smbclient 未安裝，請在伺服器執行: brew install samba（若已安裝，請設定環境變數 SMBCLIENT_PATH 指向其絕對路徑）';
+    }
+    return 'smbclient 未安裝，請在伺服器安裝 smbclient（Debian/Ubuntu: sudo apt-get install -y smbclient；RHEL/CentOS: sudo yum install -y samba-client）。若已安裝，請設定環境變數 SMBCLIENT_PATH 指向其絕對路徑';
+}
 function getSessionId(req) {
     const id = req.headers['x-session-id'] ||
         req.query.sessionId;
@@ -111,7 +120,7 @@ backupRouter.post('/verify-nas', async (req, res) => {
                     : typeof code === 'string' && code.startsWith('ERR_NAS_MOUNT')
                         ? 'NAS 掛載失敗，請檢查憑證與網路連線'
                         : code === 'ERR_NAS_SMBCLIENT_NOT_FOUND'
-                            ? 'smbclient 未安裝，請在伺服器執行: brew install samba'
+                            ? smbclientInstallHint()
                             : 'NAS 連線失敗';
         return error(res, code, msg, status);
     }
@@ -173,8 +182,14 @@ backupRouter.post('/nas-browse', async (req, res) => {
     }
     catch (err) {
         const code = err.message;
-        const status = code === 'ERR_NAS_AUTH' ? 401 : code === 'ERR_NAS_PATH' ? 400 : 500;
-        const msg = code === 'ERR_NAS_AUTH' ? 'NAS 認證失敗' : code === 'ERR_NAS_PATH' ? 'NAS 路徑不存在或無權限' : 'NAS 瀏覽失敗';
+        const status = code === 'ERR_NAS_AUTH' ? 401
+            : code === 'ERR_NAS_PATH' ? 400
+                : code === 'ERR_NAS_SMBCLIENT_NOT_FOUND' ? 503
+                    : 500;
+        const msg = code === 'ERR_NAS_AUTH' ? 'NAS 認證失敗'
+            : code === 'ERR_NAS_PATH' ? 'NAS 路徑不存在或無權限'
+                : code === 'ERR_NAS_SMBCLIENT_NOT_FOUND' ? smbclientInstallHint()
+                    : 'NAS 瀏覽失敗';
         return error(res, code, msg, status);
     }
 });
@@ -202,12 +217,14 @@ backupRouter.post('/nas-mkdir', async (req, res) => {
             : code === 'ERR_NAS_PATH' ? 400
                 : code === 'ERR_NAS_EXISTS' ? 409
                     : code === 'ERR_NAS_INVALID_NAME' ? 400
-                        : 500;
+                        : code === 'ERR_NAS_SMBCLIENT_NOT_FOUND' ? 503
+                            : 500;
         const msg = code === 'ERR_NAS_AUTH' ? 'NAS 認證失敗'
             : code === 'ERR_NAS_PATH' ? 'NAS 路徑不存在或無權限'
                 : code === 'ERR_NAS_EXISTS' ? '目錄已存在'
                     : code === 'ERR_NAS_INVALID_NAME' ? '目錄名稱無效'
-                        : '新增目錄失敗';
+                        : code === 'ERR_NAS_SMBCLIENT_NOT_FOUND' ? smbclientInstallHint()
+                            : '新增目錄失敗';
         return error(res, code, msg, status);
     }
 });

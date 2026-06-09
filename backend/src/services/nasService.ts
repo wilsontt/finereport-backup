@@ -13,6 +13,71 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 /** macOS Homebrew samba 若無 smb.conf 會報錯，使用專案內最小設定檔 */
 const SMB_CONF_PATH = path.join(__dirname, '..', '..', 'smb.conf');
 
+/**
+ * 解析 smbclient 可執行檔的絕對路徑。
+ *
+ * Node.js spawn 預設沿用啟動程序的 PATH，但以 systemd / Docker / launchd 等
+ * 方式啟動時，PATH 常不含 Homebrew（/opt/homebrew/bin、/usr/local/bin）路徑，
+ * 導致即使已安裝 smbclient 仍出現 ENOENT。此函式依序解析：
+ *   1. 環境變數 SMBCLIENT_PATH（最高優先）
+ *   2. 常見安裝路徑（Homebrew、Linux 套件）
+ *   3. 退回 'smbclient'（沿用 PATH）
+ *
+ * 結果會快取，避免每次呼叫都做檔案系統檢查。
+ */
+const SMBCLIENT_CANDIDATE_PATHS = [
+  '/opt/homebrew/bin/smbclient', // macOS Apple Silicon
+  '/usr/local/bin/smbclient', // macOS Intel
+  '/usr/bin/smbclient', // Linux 套件管理員
+  '/bin/smbclient',
+];
+
+let cachedSmbclientBin: string | null = null;
+
+export function resolveSmbclientBin(): string {
+  if (cachedSmbclientBin) {
+    return cachedSmbclientBin;
+  }
+
+  const fromEnv = process.env.SMBCLIENT_PATH?.trim();
+  if (fromEnv) {
+    cachedSmbclientBin = fromEnv;
+    return cachedSmbclientBin;
+  }
+
+  for (const candidate of SMBCLIENT_CANDIDATE_PATHS) {
+    try {
+      fs.accessSync(candidate, fs.constants.X_OK);
+      cachedSmbclientBin = candidate;
+      return cachedSmbclientBin;
+    } catch {
+      // 該路徑不存在或不可執行，嘗試下一個
+    }
+  }
+
+  cachedSmbclientBin = 'smbclient';
+  return cachedSmbclientBin;
+}
+
+/**
+ * 檢查 smbclient 是否可用（供啟動時自我檢測 / 健康檢查使用）
+ */
+export function isSmbclientAvailable(): boolean {
+  const bin = resolveSmbclientBin();
+  if (bin !== 'smbclient') {
+    return true; // 已解析為絕對路徑且通過 X_OK 檢查
+  }
+  for (const candidate of SMBCLIENT_CANDIDATE_PATHS) {
+    try {
+      fs.accessSync(candidate, fs.constants.X_OK);
+      return true;
+    } catch {
+      // 繼續檢查
+    }
+  }
+  return false;
+}
+
 export interface NasCredentials {
   host: string;
   username: string;
@@ -214,7 +279,7 @@ async function verifyViaSmbclient(creds: NasCredentials): Promise<{ ok: boolean;
     if (creds.domain && creds.domain !== 'WORKGROUP') {
       args.splice(3, 0, '-W', creds.domain);
     }
-    const proc = spawn('smbclient', args, { stdio: ['ignore', 'pipe', 'pipe'] });
+    const proc = spawn(resolveSmbclientBin(), args, { stdio: ['ignore', 'pipe', 'pipe'] });
     let stderr = '';
     proc.stderr?.on('data', (d) => { stderr += d.toString(); });
     proc.on('close', (code) => {
@@ -289,7 +354,7 @@ export async function listNasDirectory(creds: NasCredentials, path: string): Pro
     if (creds.domain && creds.domain !== 'WORKGROUP') {
       args.splice(3, 0, '-W', creds.domain);
     }
-    const proc = spawn('smbclient', args, { stdio: ['ignore', 'pipe', 'pipe'] });
+    const proc = spawn(resolveSmbclientBin(), args, { stdio: ['ignore', 'pipe', 'pipe'] });
     let stdout = '';
     let stderr = '';
     proc.stdout?.on('data', (d) => { stdout += d.toString(); });
@@ -358,7 +423,7 @@ export async function createNasDirectory(
     if (creds.domain && creds.domain !== 'WORKGROUP') {
       args.splice(3, 0, '-W', creds.domain);
     }
-    const proc = spawn('smbclient', args, { stdio: ['ignore', 'pipe', 'pipe'] });
+    const proc = spawn(resolveSmbclientBin(), args, { stdio: ['ignore', 'pipe', 'pipe'] });
     let stderr = '';
     proc.stderr?.on('data', (d) => { stderr += d.toString(); });
     proc.on('close', (code) => {
