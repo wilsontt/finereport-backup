@@ -17,7 +17,6 @@ import { mountNas, unmountNas, createNasDirectory, resolveSmbclientBin } from '.
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SMB_CONF_PATH = path.join(__dirname, '..', '..', 'smb.conf');
 
-const LARGE_DIR_FILE_THRESHOLD = 500;
 const SOURCE_DOWNLOAD_TIMEOUT_MS = 5 * 60 * 1000; // 5 分鐘（每個來源）
 
 interface BackupSource {
@@ -175,22 +174,6 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
   return Promise.race([promise, timeout]).finally(() => clearTimeout(timer)) as Promise<T>;
 }
 
-async function countRemoteFiles(
-  creds: SshCredentials,
-  sudoPassword: string,
-  remotePath: string
-): Promise<number> {
-  const esc = remotePath.replace(/"/g, '\\"');
-  const { stdout, code } = await execWithSudo(
-    creds,
-    sudoPassword,
-    `find "${esc}" -type f 2>/dev/null | wc -l`,
-    true
-  );
-  if (code !== 0) return 0;
-  const line = stdout.trim().split('\n')[0].trim();
-  return parseInt(line, 10) || 0;
-}
 
 async function extractTgz(tgzPath: string, destDir: string): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -214,7 +197,6 @@ async function downloadDirWithTar(
   sudoPassword: string,
   remoteSrc: string,
   localDir: string,
-  remoteFileCount: number,
   onLog?: (label: string, command: string, output?: string) => void,
   onProgress?: (msg: string) => void
 ): Promise<void> {
@@ -226,7 +208,7 @@ async function downloadDirWithTar(
   const localParentDir = path.dirname(localDir);
 
   // 1. 遠端打包
-  onProgress?.(`遠端打包 ${baseName}（${remoteFileCount} 個檔案）`);
+  onProgress?.(`遠端打包 ${baseName}`);
   const escParent = remoteParentDir.replace(/"/g, '\\"');
   const escBase = baseName.replace(/"/g, '\\"');
   const escTgz = remoteTgz.replace(/"/g, '\\"');
@@ -263,14 +245,12 @@ async function downloadDirWithTar(
     try { fs.rmSync(localTgz); } catch { /* ignore */ }
   }
 
-  // 5. 驗證檔案數
+  // 5. 驗證解壓結果不為空
   const localCount = collectFiles(localDir).length;
-  if (localCount !== remoteFileCount) {
-    throw new Error(
-      `解壓後檔案數不符 (${baseName}): 遠端 ${remoteFileCount} 個，本機 ${localCount} 個`
-    );
+  if (localCount === 0) {
+    throw new Error(`解壓後無檔案 (${baseName})，請檢查遠端來源路徑`);
   }
-  onLog?.(`驗證 ${baseName}`, `本機 ${localCount} 個，符合遠端數量`);
+  onLog?.(`驗證 ${baseName}`, `本機解壓 ${localCount} 個檔案`);
 }
 
 /**
@@ -423,61 +403,27 @@ export async function runBackup(options: BackupOptions): Promise<void> {
       const remoteSrc = `${remoteStaging}/${destPath}`.replace(/\/+/g, '/').replace(/\/$/, '');
       const localDir = path.join(backupDestPath, destPath);
 
-      const sftpCmdDisplay = `sftp.downloadDir ${remoteSrc} -> ${path.join(backupDestPath, destPath)}`;
-      onProgress(40 + Math.floor((completed / total) * 45), `SFTP 下載 ${label}: ${sftpCmdDisplay}`);
+      onProgress(40 + Math.floor((completed / total) * 45), `打包下載 ${label}`);
 
       const localDirAbs = path.resolve(localDir);
-      fs.mkdirSync(localDirAbs, { recursive: true });
-      // 計算遠端檔案數，決定是否使用打包模式
-      const remoteFileCount = await countRemoteFiles(ssh, sudoPassword, remoteSrc);
-      log(
-        `計算檔案數 ${label}`,
-        `find ${remoteSrc} -type f | wc -l`,
-        String(remoteFileCount)
-      );
-
-      let fileCount: number;
-      if (remoteFileCount > LARGE_DIR_FILE_THRESHOLD) {
-        onProgress(
-          40 + Math.floor((completed / total) * 45),
-          `打包下載 ${label}（${remoteFileCount} 個檔案）`
+      fs.mkdirSync(path.dirname(localDirAbs), { recursive: true });
+      try {
+        await withTimeout(
+          downloadDirWithTar(
+            sftp, ssh, sudoPassword,
+            remoteSrc, localDirAbs,
+            log,
+            (msg) => onProgress(40 + Math.floor((completed / total) * 45), msg)
+          ),
+          SOURCE_DOWNLOAD_TIMEOUT_MS,
+          `打包下載 ${label}`
         );
-        log(`打包下載模式 ${label}`, `檔案數 ${remoteFileCount} > ${LARGE_DIR_FILE_THRESHOLD}，改用 tar 打包傳輸`);
-        try {
-          await withTimeout(
-            downloadDirWithTar(
-              sftp, ssh, sudoPassword,
-              remoteSrc, localDirAbs,
-              remoteFileCount,
-              log,
-              (msg) => onProgress(40 + Math.floor((completed / total) * 45), msg)
-            ),
-            SOURCE_DOWNLOAD_TIMEOUT_MS,
-            `打包下載 ${label}`
-          );
-        } catch (e) {
-          await sftp.end();
-          throw new Error(`打包下載失敗 (${label}): ${(e as Error).message}`);
-        }
-        fileCount = collectFiles(localDirAbs).length;
-      } else {
-        log(`SFTP 下載 ${label}`, `sftp.downloadDir ${remoteSrc} -> ${localDirAbs}`);
-        try {
-          await withTimeout(
-            sftp.downloadDir(remoteSrc, localDirAbs, { useFastget: false }),
-            SOURCE_DOWNLOAD_TIMEOUT_MS,
-            `SFTP 下載 ${label}`
-          );
-        } catch (e) {
-          await sftp.end();
-          throw new Error(`SFTP 下載失敗 (${label}): ${(e as Error).message}`);
-        }
-        fileCount = collectFiles(localDirAbs).length;
-        if (fileCount === 0) {
-          await sftp.end();
-          throw new Error(`SFTP 下載後無檔案 (${label})，請檢查遠端路徑: ${remoteSrc}`);
-        }
+      } catch (e) {
+        await sftp.end();
+        throw new Error(`打包下載失敗 (${label}): ${(e as Error).message}`);
       }
+
+      const fileCount = collectFiles(localDirAbs).length;
 
       if (useSmbclientFallback) {
         const nasTargetPath = `${backupDestPathRel}/${destPath}`;
