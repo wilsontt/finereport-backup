@@ -140,9 +140,17 @@ Session ID 以 `X-Session-Id` 標頭傳遞，儲存於瀏覽器 `sessionStorage`
 
 1. 以 `mount_smbfs`（macOS）或 `mount -t cifs`（Linux）掛載 NAS；失敗則以 `smbclient` 備援。
 2. SSH 連至遠端，以 `sudo cp -R` 複製 FineReport 檔案至遠端暫存路徑。
-3. 透過 SFTP 將暫存檔案下載至本機（NAS 掛載點或本機暫存目錄）。
+3. 透過 SFTP 下載至本機（NAS 掛載點或本機暫存目錄）：
+   - 若遠端檔案數 > 500（如 `schedule`），改用遠端 `tar czf` 打包 → SFTP 下載單一 `.tgz` → 本機 `tar xzf` 解壓並驗證檔案數，大幅加速大量小檔傳輸。
+   - 否則使用 `sftp.downloadDir` 逐檔下載。
+   - 每個來源下載逾時 5 分鐘；整體任務逾時 2 小時。
 4. 若使用 smbclient 備援：透過 `smbclient put` 上傳至 NAS。
 5. 依設定刪除舊備份（保留月數）、產生 Markdown 備份報告。
+
+**可靠性說明：**
+- **備份中重整頁面**：`backupId` 保存於 `sessionStorage`，重整後自動恢復到備份進度畫面並重連 SSE，直到取得最終報告。
+- **任務卡死**：逾時（5 分鐘/來源，整體 2 小時）後自動產生失敗報告並結束。
+- **失敗報告**：備份失敗時，報告（含完成度與作業日誌）仍會嘗試寫入 NAS，即使前端失聯也有紀錄。
 
 **後端主機系統需求**：`smbclient`、`mount_smbfs`（macOS）或 `mount -t cifs`（Linux）。
 

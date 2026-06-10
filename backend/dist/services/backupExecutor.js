@@ -2,6 +2,7 @@
  * 備份執行器
  */
 import { randomUUID } from 'crypto';
+const OVERALL_BACKUP_TIMEOUT_MS = 2 * 60 * 60 * 1000; // 2 小時
 const progressMap = new Map();
 const reportMap = new Map();
 const logMap = new Map();
@@ -34,6 +35,13 @@ export function setReport(backupId, content) {
 export function getReport(backupId) {
     return reportMap.get(backupId);
 }
+function withTimeoutExec(promise, ms) {
+    let timer;
+    const timeout = new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error(`OVERALL_TIMEOUT: 整體備份逾時（${ms / 1000 / 60} 分鐘）`)), ms);
+    });
+    return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
 /**
  * 非同步執行備份流程（SFTP 下載 + SMB 上傳）
  */
@@ -55,7 +63,7 @@ export function runBackupAsync(backupId, options) {
             addLog(backupId, log);
         };
         try {
-            const report = await runBackup({
+            await withTimeoutExec(runBackup({
                 backupId,
                 stagingPath,
                 sources: sources,
@@ -67,23 +75,20 @@ export function runBackupAsync(backupId, options) {
                 nas: sess.nas,
                 onProgress,
                 onLog,
-            });
-            setReport(backupId, report);
+                onReport: (report) => {
+                    setReport(backupId, report);
+                },
+            }), OVERALL_BACKUP_TIMEOUT_MS);
+            // runBackup 成功：onReport 回呼已呼叫 setReport
         }
         catch (err) {
             const msg = err.message;
             addProgress(backupId, { step: 'error', percent: 100, message: msg });
-            // 失敗時一併保留完整作業日誌，方便事後查 smbclient／SSH 等實際錯誤輸出
-            const logs = getLogs(backupId);
-            const logSection = logs.length
-                ? logs
-                    .map((l) => {
-                    const out = l.output != null && l.output !== '' ? `\n\n輸出：\n\`\`\`\n${l.output}\n\`\`\`` : '';
-                    return `### ${l.label}\n\n\`\`\`\n${l.command}\n\`\`\`${out}`;
-                })
-                    .join('\n\n')
-                : '（無作業日誌）';
-            setReport(backupId, `# 備份失敗\n\n${msg}\n\n請檢查憑證與網路連線後重試。\n\n---\n\n## 作業日誌（失敗前完整紀錄）\n\n${logSection}\n`);
+            // 失敗報告已由 runBackup catch 區塊透過 onReport 回呼呼叫 setReport
+            // 若 session 問題導致 runBackup 未能呼叫 onReport，補一個保底
+            if (!getReport(backupId)) {
+                setReport(backupId, `# 備份失敗\n\n${msg}\n\n請檢查憑證與網路連線後重試。\n`);
+            }
         }
     })();
 }

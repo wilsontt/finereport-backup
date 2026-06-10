@@ -53,9 +53,14 @@ docker build -f Dockerfile.frontend -t finereport-backup-frontend .
 **備份執行流程**（`services/backupService.ts` + `services/backupExecutor.ts`）：
 1. 以 `mount_smbfs`（macOS）或 `mount -t cifs`（Linux）掛載 NAS；若掛載失敗，改用 `smbclient` 作為備援
 2. SSH 連至遠端 → 以 sudo 執行 `cp -R`，將檔案複製至遠端暫存路徑
-3. 透過 SFTP 從遠端暫存路徑下載至本機（NAS 掛載點或暫存目錄）
+3. 透過 SFTP 下載至本機（NAS 掛載點或暫存目錄）：遠端檔案數 > 500 時改用 `tar czf` 打包 + `fastGet` 下載單一 `.tgz` + 本機 `tar xzf` 解壓（驗證檔案數）；其他來源維持 `downloadDir`；每來源 5 分鐘 timeout。
 4. 若使用 smbclient 備援：透過 `smbclient put` 從暫存目錄上傳至 NAS
 5. 對暫存目錄執行 `chown`、依設定刪除舊備份、產生 Markdown 備份報告
+
+**可靠性機制**（v1.3 新增）：
+- 報告必產生：任何結束路徑（成功/失敗/逾時）均產生報告，失敗報告也嘗試寫入 NAS。
+- 前端可重連：`backupId` 保存於 `sessionStorage`，頁面重整後自動跳回備份進度畫面重連 SSE。
+- 整體逾時：2 小時 timeout 保護，逾時即產生失敗報告並結束。
 
 **SSE 進度串流**：`GET /progress/:backupId` 透過 Server-Sent Events 推送 `event: progress` 與 `event: done`。備份 ID 為一組 UUID，在非同步工作啟動前即已建立。
 

@@ -23,10 +23,11 @@ interface BackupOptions {
     nas: NasCredentials;
     onProgress: (percent: number, message: string) => void;
     onLog?: (log: OperationLog) => void;
+    onReport: (report: string, isFailure: boolean) => void;
 }
 /**
  * 執行完整備份流程
  */
-export declare function runBackup(options: BackupOptions): Promise<string>;
+export declare function runBackup(options: BackupOptions): Promise<void>;
 export {};
 //# sourceMappingURL=backupService.d.ts.map

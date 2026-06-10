@@ -1,7 +1,7 @@
 /**
  * FineReport 備份工具 — 主應用
  */
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { PortalFooter } from '@shared-ui/portal-footer';
 import { CredentialForm } from './components/CredentialForm';
 import { HumanVerification } from './components/HumanVerification';
@@ -21,6 +21,14 @@ function App() {
   const [verifiedNasPath, setVerifiedNasPath] = useState('');
   const [backupId, setBackupId] = useState<string | null>(null);
 
+  useEffect(() => {
+    const savedId = sessionStorage.getItem('finereport-backup-id');
+    if (savedId) {
+      setBackupId(savedId);
+      setStep('backup');
+    }
+  }, []);
+
   const onCredentialsDone = (nasFullPath?: string) => {
     setVerifiedNasPath(nasFullPath ?? '');
     setStep('human');
@@ -28,6 +36,7 @@ function App() {
   const onHumanDone = () => setStep('paths');
   const onPathsDone = () => setStep('backup');
   const onBackupStart = (id: string) => {
+    sessionStorage.setItem('finereport-backup-id', id);
     setBackupId(id);
   };
 

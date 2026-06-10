@@ -4,6 +4,8 @@
 import { randomUUID } from 'crypto';
 import type { OperationLog } from './backupService.js';
 
+const OVERALL_BACKUP_TIMEOUT_MS = 2 * 60 * 60 * 1000; // 2 小時
+
 export interface BackupProgress {
   step: string;
   percent: number;
@@ -52,6 +54,17 @@ export function getReport(backupId: string): string | undefined {
   return reportMap.get(backupId);
 }
 
+function withTimeoutExec<T>(promise: Promise<T>, ms: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout>;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(
+      () => reject(new Error(`OVERALL_TIMEOUT: 整體備份逾時（${ms / 1000 / 60} 分鐘）`)),
+      ms
+    );
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer)) as Promise<T>;
+}
+
 /**
  * 非同步執行備份流程（SFTP 下載 + SMB 上傳）
  */
@@ -88,38 +101,37 @@ export function runBackupAsync(
     };
 
     try {
-      const report = await runBackup({
-        backupId,
-        stagingPath,
-        sources: sources as Array<{ id: string; sourcePath: string; destPath: string; label?: string }>,
-        nasPath,
-        deleteOldBackup,
-        retentionMonths,
-        ssh: sess.ssh,
-        sudoPassword: sess.sudoPassword,
-        nas: sess.nas,
-        onProgress,
-        onLog,
-      });
-      setReport(backupId, report);
+      await withTimeoutExec(
+        runBackup({
+          backupId,
+          stagingPath,
+          sources: sources as Array<{ id: string; sourcePath: string; destPath: string; label?: string }>,
+          nasPath,
+          deleteOldBackup,
+          retentionMonths,
+          ssh: sess.ssh,
+          sudoPassword: sess.sudoPassword,
+          nas: sess.nas,
+          onProgress,
+          onLog,
+          onReport: (report) => {
+            setReport(backupId, report);
+          },
+        }),
+        OVERALL_BACKUP_TIMEOUT_MS
+      );
+      // runBackup 成功：onReport 回呼已呼叫 setReport
     } catch (err) {
       const msg = (err as Error).message;
       addProgress(backupId, { step: 'error', percent: 100, message: msg });
-      // 失敗時一併保留完整作業日誌，方便事後查 smbclient／SSH 等實際錯誤輸出
-      const logs = getLogs(backupId);
-      const logSection = logs.length
-        ? logs
-            .map((l) => {
-              const out =
-                l.output != null && l.output !== '' ? `\n\n輸出：\n\`\`\`\n${l.output}\n\`\`\`` : '';
-              return `### ${l.label}\n\n\`\`\`\n${l.command}\n\`\`\`${out}`;
-            })
-            .join('\n\n')
-        : '（無作業日誌）';
-      setReport(
-        backupId,
-        `# 備份失敗\n\n${msg}\n\n請檢查憑證與網路連線後重試。\n\n---\n\n## 作業日誌（失敗前完整紀錄）\n\n${logSection}\n`
-      );
+      // 失敗報告已由 runBackup catch 區塊透過 onReport 回呼呼叫 setReport
+      // 若 session 問題導致 runBackup 未能呼叫 onReport，補一個保底
+      if (!getReport(backupId)) {
+        setReport(
+          backupId,
+          `# 備份失敗\n\n${msg}\n\n請檢查憑證與網路連線後重試。\n`
+        );
+      }
     }
   })();
 }

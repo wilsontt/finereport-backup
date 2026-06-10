@@ -1,7 +1,7 @@
 /**
  * 備份進度與報告
  */
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { backupApi } from '../api/backup';
 import { PathBrowserModal } from './PathSelector';
 import type { BackupSource } from '../types';
@@ -46,6 +46,8 @@ export function BackupProgress({
   const [browseStaging, setBrowseStaging] = useState(false);
   const [deleteOldBackup, setDeleteOldBackup] = useState(false);
   const [retentionMonths, setRetentionMonths] = useState(0);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const startTimeRef = useRef<number | null>(null);
 
   useEffect(() => {
     backupApi.getStagingDefaultPath().then((res) => {
@@ -110,6 +112,7 @@ export function BackupProgress({
       }
     });
     es.addEventListener('done', (e: MessageEvent) => {
+      sessionStorage.removeItem('finereport-backup-id');
       try {
         const d = (e.data ? JSON.parse(e.data) : {}) as { logs?: OperationLog[]; success?: boolean };
         if (d.logs && d.logs.length > 0) setOperationLogs(d.logs);
@@ -129,6 +132,18 @@ export function BackupProgress({
     });
     return () => es.close();
   }, [backupId]);
+
+  useEffect(() => {
+    if (!backupId || done) return;
+    startTimeRef.current = Date.now();
+    setElapsedSeconds(0);
+    const timer = setInterval(() => {
+      if (startTimeRef.current !== null) {
+        setElapsedSeconds(Math.floor((Date.now() - startTimeRef.current) / 1000));
+      }
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [backupId, done]);
 
   if (!backupId) {
     return (
@@ -219,6 +234,15 @@ export function BackupProgress({
     );
   }
 
+  const formatElapsed = (s: number) => {
+    const m = Math.floor(s / 60).toString().padStart(2, '0');
+    const sec = (s % 60).toString().padStart(2, '0');
+    return `${m}:${sec}`;
+  };
+
+  // 35–90% 為 SFTP 下載或 SMB 上傳的長任務範圍
+  const isIndeterminate = !done && percent >= 35 && percent < 90;
+
   const isComplete = done && percent >= 100;
   const showReport = isComplete && report && !report.includes('（報告產生中）');
 
@@ -243,17 +267,34 @@ export function BackupProgress({
               overflow: 'hidden',
             }}
           >
-            <div
-              style={{
-                height: '100%',
-                width: `${percent}%`,
-                background: backupFailed ? 'var(--color-error-text)' : percent >= 100 ? 'var(--color-success)' : 'var(--color-primary)',
-                transition: 'width 0.3s ease',
-              }}
-            />
+            <>
+              <style>{`@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}`}</style>
+              <div
+                style={{
+                  height: '100%',
+                  width: `${percent}%`,
+                  background: backupFailed
+                    ? 'var(--color-error-text)'
+                    : percent >= 100
+                      ? 'var(--color-success)'
+                      : 'var(--color-primary)',
+                  transition: isIndeterminate ? 'none' : 'width 0.3s ease',
+                  backgroundImage: isIndeterminate
+                    ? 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.35) 50%, transparent 100%)'
+                    : 'none',
+                  backgroundSize: isIndeterminate ? '200% 100%' : 'auto',
+                  animation: isIndeterminate ? 'shimmer 1.5s linear infinite' : 'none',
+                }}
+              />
+            </>
           </div>
           {currentMessage && (
             <p style={{ margin: '0.75rem 0 0 0', fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>{currentMessage}</p>
+          )}
+          {!done && backupId && (
+            <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.8125rem', color: 'var(--color-text-muted)' }}>
+              已經過 {formatElapsed(elapsedSeconds)}
+            </p>
           )}
         </div>
         
