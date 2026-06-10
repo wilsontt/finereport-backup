@@ -212,6 +212,39 @@ docker compose logs finereport-backup-backend | grep "啟動檢測"
 
 > 註：`mount -t cifs` 若要在容器內實際掛載，容器需具備 `CAP_SYS_ADMIN`（或 `privileged`）權限；若無，掛載會失敗並自動退回 `smbclient` 流程，備份仍可正常運作。
 
+### NAS 連線：容器 `NT_STATUS_HOST_UNREACHABLE`（host 主機可連、容器不可連）
+
+**症狀**：備份在 SMB 上傳階段失敗，作業日誌出現空白的 `ERR_NAS_UPLOAD:` 或 `do_connect: Connection to <NAS> failed (Error NT_STATUS_HOST_UNREACHABLE)`；但在 ds1 **主機**上 `ping`、`nc -vz <NAS> 445` 皆正常。
+
+**根因**：後端容器走 bridge 網路（NAT），來源 IP 為 Docker 網段（如 `172.18.0.0/16`）；NAS 或中間防火牆未放行此網段，導致容器到 NAS 的 TCP 445 不通（主機 IP 則被放行）。
+
+**快速判定**（容器內，免裝 ping）：
+
+```bash
+docker compose exec finereport-backup-backend bash -c \
+  "timeout 5 bash -c 'cat < /dev/null > /dev/tcp/10.9.82.22/445' && echo 445_OK || echo 445_FAIL"
+```
+
+`445_FAIL` 即為容器出網被擋。
+
+**解法 A（採用中）：後端改用 host 網路**，讓備份流量以主機 IP 出網。`deploy/docker-compose.yml`：
+
+```yaml
+finereport-backup-backend:
+  network_mode: host          # 取代 networks: - portal-network
+```
+
+> host 模式下後端會 listen 在主機 `0.0.0.0:3000`，已脫離 `portal-network`，故 **nginx 必須改以 `host.docker.internal:3000` 連線**：
+>
+> - `deploy/nginx/nginx.conf`：`upstream finereport-backup-backend { server host.docker.internal:3000; }`
+> - `deploy/docker-compose.yml` 的 `nginx` service 加 `extra_hosts: ["host.docker.internal:host-gateway"]`
+>
+> **安全**：host 模式會把 3000 直接暴露於主機所有介面，請以防火牆限制僅本機／內網存取（對外只走 nginx 的 80）。
+
+**解法 B（較乾淨）：維持 bridge，由網管在 NAS／防火牆放行 Docker 網段**（如 `172.18.0.0/16`）到 NAS 的 445/tcp，即不需改 `network_mode`。
+
+> 備份失敗時，後端會將 smbclient 的 stdout/stderr 完整輸出寫入「作業日誌」與「備份失敗報告」，可據此區分是 `NT_STATUS_HOST_UNREACHABLE`（網路）、`NT_STATUS_LOGON_FAILURE`（認證）或 `NT_STATUS_ACCESS_DENIED`（權限）。
+
 ### 啟動自我檢測
 
 後端啟動時會自動檢測 smbclient 並輸出日誌：

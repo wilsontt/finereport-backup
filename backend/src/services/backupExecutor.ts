@@ -105,7 +105,21 @@ export function runBackupAsync(
     } catch (err) {
       const msg = (err as Error).message;
       addProgress(backupId, { step: 'error', percent: 100, message: msg });
-      setReport(backupId, `# 備份失敗\n\n${msg}\n\n請檢查憑證與網路連線後重試。`);
+      // 失敗時一併保留完整作業日誌，方便事後查 smbclient／SSH 等實際錯誤輸出
+      const logs = getLogs(backupId);
+      const logSection = logs.length
+        ? logs
+            .map((l) => {
+              const out =
+                l.output != null && l.output !== '' ? `\n\n輸出：\n\`\`\`\n${l.output}\n\`\`\`` : '';
+              return `### ${l.label}\n\n\`\`\`\n${l.command}\n\`\`\`${out}`;
+            })
+            .join('\n\n')
+        : '（無作業日誌）';
+      setReport(
+        backupId,
+        `# 備份失敗\n\n${msg}\n\n請檢查憑證與網路連線後重試。\n\n---\n\n## 作業日誌（失敗前完整紀錄）\n\n${logSection}\n`
+      );
     }
   })();
 }

@@ -27,7 +27,7 @@ async function ensureNasPath(creds, fullPath) {
         parent = parent === '.' ? p : `${parent}/${p}`;
     }
 }
-async function uploadDirViaSmbclient(creds, targetPath, localDir, onFileProgress) {
+async function uploadDirViaSmbclient(creds, targetPath, localDir, onFileProgress, onLog) {
     const host = creds.host.replace(/^smb:\/\//, '').trim();
     const address = `//${host}/${creds.share}`;
     const args = ['-s', SMB_CONF_PATH, address, '-U', `${creds.username}%${creds.password}`, '-N'];
@@ -49,26 +49,51 @@ async function uploadDirViaSmbclient(creds, targetPath, localDir, onFileProgress
         const putCmd = `cd "${cdEsc}"; put "${localEsc}" "${filePart}"`;
         const proc = spawn(resolveSmbclientBin(), [...args, '-c', putCmd], { stdio: ['ignore', 'pipe', 'pipe'] });
         await new Promise((resolve, reject) => {
+            // smbclient 常把連線錯誤（如 do_connect ... NT_STATUS_HOST_UNREACHABLE）寫到 stdout，
+            // 故 stdout、stderr 都要收集，否則失敗時錯誤訊息會是空字串。
+            let stdout = '';
             let stderr = '';
+            proc.stdout?.on('data', (d) => { stdout += d.toString(); });
             proc.stderr?.on('data', (d) => { stderr += d.toString(); });
             proc.on('close', (code) => {
                 if (code !== 0) {
-                    const msg = stderr.toLowerCase();
-                    if (msg.includes('auth') || msg.includes('nt_status_logon_failure'))
-                        reject(new Error('ERR_NAS_AUTH'));
-                    else if (msg.includes('no such file') || msg.includes('access denied'))
-                        reject(new Error('ERR_NAS_PATH'));
-                    else
-                        reject(new Error(`ERR_NAS_UPLOAD: ${stderr}`));
+                    const combined = `${stdout}\n${stderr}`.trim();
+                    const detail = combined || `(smbclient 無輸出，exit=${code})`;
+                    const msg = combined.toLowerCase();
+                    // 失敗時記錄詳細日誌：檔名、目的路徑、exit code、smbclient 完整輸出（指令不含密碼）
+                    onLog?.(`SMB 上傳失敗 (${f.relPath})`, `smbclient put "${filePart}" -> ${cdPath} (exit=${code})`, detail);
+                    if (msg.includes('logon_failure') || msg.includes('auth')) {
+                        reject(new Error(`ERR_NAS_AUTH: ${detail}`));
+                    }
+                    else if (msg.includes('host_unreachable') ||
+                        msg.includes('no route to host') ||
+                        msg.includes('host is down') ||
+                        msg.includes('connection refused') ||
+                        msg.includes('connection to') // do_connect: Connection to <host> failed
+                    ) {
+                        reject(new Error(`ERR_NAS_UNREACHABLE: ${detail}`));
+                    }
+                    else if (msg.includes('no such file') ||
+                        msg.includes('access denied') ||
+                        msg.includes('object_name_not_found')) {
+                        reject(new Error(`ERR_NAS_PATH: ${detail}`));
+                    }
+                    else {
+                        reject(new Error(`ERR_NAS_UPLOAD: ${detail}`));
+                    }
                 }
                 else
                     resolve();
             });
             proc.on('error', (e) => {
-                if (e.code === 'ENOENT')
+                if (e.code === 'ENOENT') {
+                    onLog?.(`SMB 上傳失敗 (${f.relPath})`, 'smbclient', 'ERR_NAS_SMBCLIENT_NOT_FOUND: 找不到 smbclient 可執行檔');
                     reject(new Error('ERR_NAS_SMBCLIENT_NOT_FOUND'));
-                else
+                }
+                else {
+                    onLog?.(`SMB 上傳失敗 (${f.relPath})`, 'smbclient', e.message);
                     reject(e);
+                }
             });
         });
     }
@@ -224,7 +249,7 @@ export async function runBackup(options) {
                 await uploadDirViaSmbclient(nas, nasTargetPath, localDirAbs, (fileIdx, totalFiles, fileName) => {
                     const pct = 40 + Math.floor(((completed + fileIdx / totalFiles) / total) * 45);
                     onProgress(pct, `SMB 上傳 ${label}: ${fileName}`);
-                });
+                }, log);
             }
             else {
                 log(`已寫入 NAS ${label}`, `${fileCount} 個檔案 -> ${backupDestPathRel}/${destPath}`);
@@ -272,7 +297,7 @@ export async function runBackup(options) {
             fs.mkdirSync(reportDir, { recursive: true });
             fs.writeFileSync(path.join(reportDir, '備份報告.md'), report, 'utf8');
             await ensureNasPath(nas, backupDestPathRel);
-            await uploadDirViaSmbclient(nas, backupDestPathRel, reportDir);
+            await uploadDirViaSmbclient(nas, backupDestPathRel, reportDir, undefined, log);
         }
         onProgress(100, '備份完成');
         return report;

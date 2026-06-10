@@ -259,24 +259,30 @@ export function BackupProgress({
         
         {operationLogs.length > 0 && (
           <div style={{ marginBottom: '1.5rem' }}>
-            <h3 style={{ fontSize: '1rem', marginBottom: '0.75rem' }}>作業日誌</h3>
+            <h3 style={{ fontSize: '1.25rem', marginBottom: '0.75rem' }}>
+              作業日誌
+              <span style={{ fontSize: '0.9375rem', fontWeight: 400, color: 'var(--color-text-muted)', marginLeft: '0.5rem' }}>
+                （最新的在最上面）
+              </span>
+            </h3>
             <pre
               style={{
                 whiteSpace: 'pre-wrap',
                 wordBreak: 'break-all',
                 background: '#1e1e1e',
                 color: '#d4d4d4',
-                padding: '1rem',
+                padding: '1.25rem',
                 borderRadius: 'var(--radius-md)',
-                fontSize: '0.8125rem',
+                fontSize: '1.0625rem',
+                lineHeight: 1.7,
                 fontFamily: 'ui-monospace, monospace',
-                maxHeight: '320px',
+                maxHeight: '560px',
                 overflowY: 'auto',
                 margin: 0,
               }}
             >
-              {operationLogs.map((log, i) => (
-                <div key={i} style={{ marginBottom: '0.5rem' }}>
+              {[...operationLogs].reverse().map((log, i) => (
+                <div key={i} style={{ marginBottom: '0.85rem' }}>
                   <span style={{ color: '#6a9955' }}>{'# '}{log.label}</span>
                   <br />
                   <span style={{ color: '#9cdcfe' }}>$ </span>
