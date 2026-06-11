@@ -140,12 +140,12 @@ Session ID 以 `X-Session-Id` 標頭傳遞，儲存於瀏覽器 `sessionStorage`
 
 1. 以 `mount_smbfs`（macOS）或 `mount -t cifs`（Linux）掛載 NAS；失敗則以 `smbclient` 備援。
 2. SSH 連至遠端，以 `sudo cp -R` 複製 FineReport 檔案至遠端暫存路徑。
-3. 透過 SFTP 下載至本機（NAS 掛載點或本機暫存目錄）：
-   - 若遠端檔案數 > 500（如 `schedule`），改用遠端 `tar czf` 打包 → SFTP 下載單一 `.tgz` → 本機 `tar xzf` 解壓並驗證檔案數，大幅加速大量小檔傳輸。
-   - 否則使用 `sftp.downloadDir` 逐檔下載。
+3. 每個來源目錄統一以遠端 `tar czf` 打包，再透過 SFTP `fastGet` 下載**單一 `.tgz`** 至本機（NAS 掛載點或本機暫存目錄），下載完成後刪除遠端暫存的 `.tgz`：
+   - 目的端**不會自動解壓**，僅保留 `.tgz` 壓縮檔——加速大量小檔傳輸、避免深層路徑問題，同時節省 NAS 空間；如需查看內容請自行手動 `tar xzf` 解壓。
+   - 僅需建立目的目錄的第一層（如 `webroot/`、`mysqldata/`），不需重建來源內部的目錄結構。
    - 每個來源下載逾時 5 分鐘；整體任務逾時 2 小時。
-4. 若使用 smbclient 備援：透過 `smbclient put` 上傳至 NAS。
-5. 依設定刪除舊備份（保留月數）、產生 Markdown 備份報告。
+4. 若使用 smbclient 備援：透過 `smbclient put` 將各來源的 `.tgz` 上傳至 NAS。
+5. 依設定刪除舊備份（保留月數）、產生 Markdown 備份報告（檔名格式：`yyyyMMdd_備份年月_FineReport備份報告.md`）。
 
 **可靠性說明：**
 - **備份中重整頁面**：`backupId` 保存於 `sessionStorage`，重整後自動恢復到備份進度畫面並重連 SSE，直到取得最終報告。
