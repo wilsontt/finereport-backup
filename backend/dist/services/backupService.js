@@ -28,13 +28,70 @@ async function ensureNasPath(creds, fullPath) {
         parent = parent === '.' ? p : `${parent}/${p}`;
     }
 }
-async function uploadDirViaSmbclient(creds, targetPath, localDir, onFileProgress, onLog) {
+/**
+ * 透過 smbclient 將單一檔案上傳至 NAS 指定目錄，失敗時依 smbclient 輸出內容分類錯誤原因
+ */
+async function smbclientPutFile(creds, localFilePath, nasTargetDir, remoteFileName, onLog) {
     const host = creds.host.replace(/^smb:\/\//, '').trim();
     const address = `//${host}/${creds.share}`;
     const args = ['-s', SMB_CONF_PATH, address, '-U', `${creds.username}%${creds.password}`, '-N'];
     if (creds.domain && creds.domain !== 'WORKGROUP') {
         args.splice(3, 0, '-W', creds.domain);
     }
+    const cdEsc = nasTargetDir.replace(/"/g, '\\"');
+    const localEsc = localFilePath.replace(/"/g, '\\"');
+    const putCmd = `cd "${cdEsc}"; put "${localEsc}" "${remoteFileName}"`;
+    const proc = spawn(resolveSmbclientBin(), [...args, '-c', putCmd], { stdio: ['ignore', 'pipe', 'pipe'] });
+    await new Promise((resolve, reject) => {
+        // smbclient 常把連線錯誤（如 do_connect ... NT_STATUS_HOST_UNREACHABLE）寫到 stdout，
+        // 故 stdout、stderr 都要收集，否則失敗時錯誤訊息會是空字串。
+        let stdout = '';
+        let stderr = '';
+        proc.stdout?.on('data', (d) => { stdout += d.toString(); });
+        proc.stderr?.on('data', (d) => { stderr += d.toString(); });
+        proc.on('close', (code) => {
+            if (code !== 0) {
+                const combined = `${stdout}\n${stderr}`.trim();
+                const detail = combined || `(smbclient 無輸出，exit=${code})`;
+                const msg = combined.toLowerCase();
+                // 失敗時記錄詳細日誌：檔名、目的路徑、exit code、smbclient 完整輸出（指令不含密碼）
+                onLog?.(`SMB 上傳失敗 (${remoteFileName})`, `smbclient put "${remoteFileName}" -> ${nasTargetDir} (exit=${code})`, detail);
+                if (msg.includes('logon_failure') || msg.includes('auth')) {
+                    reject(new Error(`ERR_NAS_AUTH: ${detail}`));
+                }
+                else if (msg.includes('host_unreachable') ||
+                    msg.includes('no route to host') ||
+                    msg.includes('host is down') ||
+                    msg.includes('connection refused') ||
+                    msg.includes('connection to') // do_connect: Connection to <host> failed
+                ) {
+                    reject(new Error(`ERR_NAS_UNREACHABLE: ${detail}`));
+                }
+                else if (msg.includes('no such file') ||
+                    msg.includes('access denied') ||
+                    msg.includes('object_name_not_found')) {
+                    reject(new Error(`ERR_NAS_PATH: ${detail}`));
+                }
+                else {
+                    reject(new Error(`ERR_NAS_UPLOAD: ${detail}`));
+                }
+            }
+            else
+                resolve();
+        });
+        proc.on('error', (e) => {
+            if (e.code === 'ENOENT') {
+                onLog?.(`SMB 上傳失敗 (${remoteFileName})`, 'smbclient', 'ERR_NAS_SMBCLIENT_NOT_FOUND: 找不到 smbclient 可執行檔');
+                reject(new Error('ERR_NAS_SMBCLIENT_NOT_FOUND'));
+            }
+            else {
+                onLog?.(`SMB 上傳失敗 (${remoteFileName})`, 'smbclient', e.message);
+                reject(e);
+            }
+        });
+    });
+}
+async function uploadDirViaSmbclient(creds, targetPath, localDir, onFileProgress, onLog) {
     const files = collectFiles(localDir);
     if (files.length === 0)
         return;
@@ -43,61 +100,17 @@ async function uploadDirViaSmbclient(creds, targetPath, localDir, onFileProgress
         onFileProgress?.(i, files.length, f.relPath);
         const dirPart = path.dirname(f.relPath);
         const filePart = path.basename(f.relPath);
-        const cdPath = dirPart ? `${targetPath}/${dirPart.replace(/\\/g, '/')}` : targetPath;
+        const cdPath = dirPart && dirPart !== '.' ? `${targetPath}/${dirPart.replace(/\\/g, '/')}` : targetPath;
         await ensureNasPath(creds, cdPath);
-        const cdEsc = cdPath.replace(/"/g, '\\"');
-        const localEsc = f.localPath.replace(/"/g, '\\"');
-        const putCmd = `cd "${cdEsc}"; put "${localEsc}" "${filePart}"`;
-        const proc = spawn(resolveSmbclientBin(), [...args, '-c', putCmd], { stdio: ['ignore', 'pipe', 'pipe'] });
-        await new Promise((resolve, reject) => {
-            // smbclient 常把連線錯誤（如 do_connect ... NT_STATUS_HOST_UNREACHABLE）寫到 stdout，
-            // 故 stdout、stderr 都要收集，否則失敗時錯誤訊息會是空字串。
-            let stdout = '';
-            let stderr = '';
-            proc.stdout?.on('data', (d) => { stdout += d.toString(); });
-            proc.stderr?.on('data', (d) => { stderr += d.toString(); });
-            proc.on('close', (code) => {
-                if (code !== 0) {
-                    const combined = `${stdout}\n${stderr}`.trim();
-                    const detail = combined || `(smbclient 無輸出，exit=${code})`;
-                    const msg = combined.toLowerCase();
-                    // 失敗時記錄詳細日誌：檔名、目的路徑、exit code、smbclient 完整輸出（指令不含密碼）
-                    onLog?.(`SMB 上傳失敗 (${f.relPath})`, `smbclient put "${filePart}" -> ${cdPath} (exit=${code})`, detail);
-                    if (msg.includes('logon_failure') || msg.includes('auth')) {
-                        reject(new Error(`ERR_NAS_AUTH: ${detail}`));
-                    }
-                    else if (msg.includes('host_unreachable') ||
-                        msg.includes('no route to host') ||
-                        msg.includes('host is down') ||
-                        msg.includes('connection refused') ||
-                        msg.includes('connection to') // do_connect: Connection to <host> failed
-                    ) {
-                        reject(new Error(`ERR_NAS_UNREACHABLE: ${detail}`));
-                    }
-                    else if (msg.includes('no such file') ||
-                        msg.includes('access denied') ||
-                        msg.includes('object_name_not_found')) {
-                        reject(new Error(`ERR_NAS_PATH: ${detail}`));
-                    }
-                    else {
-                        reject(new Error(`ERR_NAS_UPLOAD: ${detail}`));
-                    }
-                }
-                else
-                    resolve();
-            });
-            proc.on('error', (e) => {
-                if (e.code === 'ENOENT') {
-                    onLog?.(`SMB 上傳失敗 (${f.relPath})`, 'smbclient', 'ERR_NAS_SMBCLIENT_NOT_FOUND: 找不到 smbclient 可執行檔');
-                    reject(new Error('ERR_NAS_SMBCLIENT_NOT_FOUND'));
-                }
-                else {
-                    onLog?.(`SMB 上傳失敗 (${f.relPath})`, 'smbclient', e.message);
-                    reject(e);
-                }
-            });
-        });
+        await smbclientPutFile(creds, f.localPath, cdPath, filePart, onLog);
     }
+}
+/**
+ * 透過 smbclient 將單一檔案上傳至 NAS 指定目錄（自動建立目錄）
+ */
+async function uploadFileViaSmbclient(creds, nasTargetDir, localFilePath, onLog) {
+    await ensureNasPath(creds, nasTargetDir);
+    await smbclientPutFile(creds, localFilePath, nasTargetDir, path.basename(localFilePath), onLog);
 }
 /**
  * 遞迴收集目錄下所有檔案（相對路徑）
@@ -124,28 +137,16 @@ function withTimeout(promise, ms, label) {
     });
     return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
 }
-async function extractTgz(tgzPath, destDir) {
-    return new Promise((resolve, reject) => {
-        const proc = spawn('tar', ['xzf', tgzPath, '-C', destDir], {
-            stdio: ['ignore', 'ignore', 'pipe'],
-        });
-        let stderr = '';
-        proc.stderr?.on('data', (d) => { stderr += d.toString(); });
-        proc.on('close', (code) => {
-            code === 0
-                ? resolve()
-                : reject(new Error(`tar 解壓失敗 (exit=${code}): ${stderr.trim()}`));
-        });
-        proc.on('error', reject);
-    });
-}
-async function downloadDirWithTar(sftp, creds, sudoPassword, remoteSrc, localDir, onLog, onProgress) {
+/**
+ * 將遠端來源目錄打包為 .tgz 並透過 SFTP 下載至本機，目的端保留壓縮檔不解壓。
+ * 解壓縮交由使用者依需要自行手動執行（部分來源檔案數量極大，例如 schedule
+ * 目錄可能有數萬個小檔案，本機解壓會大幅拖慢備份流程）。
+ */
+async function downloadSourceAsTgz(sftp, creds, sudoPassword, remoteSrc, localTgzPath, onLog, onProgress) {
     const lastSlash = remoteSrc.lastIndexOf('/');
     const remoteParentDir = remoteSrc.substring(0, lastSlash);
     const baseName = remoteSrc.substring(lastSlash + 1);
     const remoteTgz = `${remoteSrc}.tgz`;
-    const localTgz = `${localDir}.tgz`;
-    const localParentDir = path.dirname(localDir);
     // 1. 遠端打包
     onProgress?.(`遠端打包 ${baseName}`);
     const escParent = remoteParentDir.replace(/"/g, '\\"');
@@ -159,10 +160,10 @@ async function downloadDirWithTar(sftp, creds, sudoPassword, remoteSrc, localDir
     }
     // 2. SFTP 下載 .tgz
     onProgress?.(`下載壓縮包 ${baseName}.tgz`);
-    onLog?.(`SFTP 下載 ${baseName}.tgz`, `fastGet ${remoteTgz} -> ${localTgz}`);
+    onLog?.(`SFTP 下載 ${baseName}.tgz`, `fastGet ${remoteTgz} -> ${localTgzPath}`);
     try {
-        // ssh2-sftp-client 的 fastGet 存在於執行期但未列入型別宣告，以 any 繞過
-        await sftp.fastGet(remoteTgz, localTgz);
+        // ssh2-sftp-client 的 fastGet 存在於執行期但未列入型別宣告，以型別斷言繞過
+        await sftp.fastGet(remoteTgz, localTgzPath);
     }
     catch (e) {
         throw new Error(`SFTP 下載 .tgz 失敗 (${baseName}): ${e.message}`);
@@ -170,25 +171,12 @@ async function downloadDirWithTar(sftp, creds, sudoPassword, remoteSrc, localDir
     // 3. 刪除遠端暫存 .tgz
     const escTgzClean = remoteTgz.replace(/"/g, '\\"');
     await execWithSudo(creds, sudoPassword, `rm -f "${escTgzClean}"`, true);
-    // 4. 本機解壓
-    onProgress?.(`解壓 ${baseName}`);
-    fs.mkdirSync(localParentDir, { recursive: true });
-    onLog?.(`本機解壓 ${baseName}`, `tar xzf ${localTgz} -C ${localParentDir}`);
-    try {
-        await extractTgz(localTgz, localParentDir);
+    // 4. 驗證本機壓縮檔存在且非空
+    const stat = fs.statSync(localTgzPath);
+    if (stat.size === 0) {
+        throw new Error(`下載壓縮包為空 (${baseName}.tgz)，請檢查遠端來源路徑`);
     }
-    finally {
-        try {
-            fs.rmSync(localTgz);
-        }
-        catch { /* ignore */ }
-    }
-    // 5. 驗證解壓結果不為空
-    const localCount = collectFiles(localDir).length;
-    if (localCount === 0) {
-        throw new Error(`解壓後無檔案 (${baseName})，請檢查遠端來源路徑`);
-    }
-    onLog?.(`驗證 ${baseName}`, `本機解壓 ${localCount} 個檔案`);
+    onLog?.(`驗證 ${baseName}`, `本機壓縮包大小 ${stat.size} bytes`);
 }
 /**
  * 執行完整備份流程
@@ -208,6 +196,7 @@ export async function runBackup(options) {
     const startTime = new Date();
     log('刪除設定', `deleteOldBackup=${deleteOldBackup}, retentionMonths=${retentionMonths}`);
     const backupMonth = stagingPath.split('/').filter(Boolean).pop() ?? '';
+    const reportFileName = `${formatTaipeiDate(new Date())}_${backupMonth}_FineReport備份報告.md`;
     const nasPathClean = nasPath.replace(/^\//, '').replace(/\/$/, '');
     const backupDestPathRel = `${nasPathClean}/${backupMonth}`;
     const mountPoint = path.join(os.tmpdir(), `finereport-nas-${backupId}`);
@@ -304,30 +293,32 @@ export async function runBackup(options) {
             const label = src.label || src.id;
             const destPath = resolveDestPath(src);
             const remoteSrc = `${remoteStaging}/${destPath}`.replace(/\/+/g, '/').replace(/\/$/, '');
-            const localDir = path.join(backupDestPath, destPath);
+            const localPath = path.join(backupDestPath, destPath);
             onProgress(40 + Math.floor((completed / total) * 45), `打包下載 ${label}`);
-            const localDirAbs = path.resolve(localDir);
-            fs.mkdirSync(path.dirname(localDirAbs), { recursive: true });
+            const localPathAbs = path.resolve(localPath);
+            fs.mkdirSync(path.dirname(localPathAbs), { recursive: true });
+            const localTgzPath = `${localPathAbs}.tgz`;
             try {
-                await withTimeout(downloadDirWithTar(sftp, ssh, sudoPassword, remoteSrc, localDirAbs, log, (msg) => onProgress(40 + Math.floor((completed / total) * 45), msg)), SOURCE_DOWNLOAD_TIMEOUT_MS, `打包下載 ${label}`);
+                await withTimeout(downloadSourceAsTgz(sftp, ssh, sudoPassword, remoteSrc, localTgzPath, log, (msg) => onProgress(40 + Math.floor((completed / total) * 45), msg)), SOURCE_DOWNLOAD_TIMEOUT_MS, `打包下載 ${label}`);
             }
             catch (e) {
                 await sftp.end();
                 throw new Error(`打包下載失敗 (${label}): ${e.message}`);
             }
-            const fileCount = collectFiles(localDirAbs).length;
+            const tgzFileName = path.basename(localTgzPath);
+            const nasTargetDir = `${backupDestPathRel}/${path.dirname(destPath)}`.replace(/\/\.$/, '');
             if (useSmbclientFallback) {
-                const nasTargetPath = `${backupDestPathRel}/${destPath}`;
-                onProgress(40 + Math.floor(((completed + 0.5) / total) * 45), `SMB 上傳 ${label}: smbclient put (${fileCount} 個檔案) -> ${nasTargetPath}`);
-                log(`SMB 上傳 ${label}`, `smbclient put (${fileCount} 個檔案) -> ${nasTargetPath}`);
-                await ensureNasPath(nas, nasTargetPath);
-                await uploadDirViaSmbclient(nas, nasTargetPath, localDirAbs, (fileIdx, totalFiles, fileName) => {
-                    const pct = 40 + Math.floor(((completed + fileIdx / totalFiles) / total) * 45);
-                    onProgress(pct, `SMB 上傳 ${label}: ${fileName}`);
-                }, log);
+                onProgress(40 + Math.floor(((completed + 0.5) / total) * 45), `SMB 上傳 ${label}: smbclient put ${tgzFileName} -> ${nasTargetDir}`);
+                log(`SMB 上傳 ${label}`, `smbclient put ${tgzFileName} -> ${nasTargetDir}`);
+                await uploadFileViaSmbclient(nas, nasTargetDir, localTgzPath, log);
+                try {
+                    fs.rmSync(localTgzPath);
+                }
+                catch { /* ignore */ }
             }
             else {
-                log(`已寫入 NAS ${label}`, `${fileCount} 個檔案 -> ${backupDestPathRel}/${destPath}`);
+                const stat = fs.statSync(localTgzPath);
+                log(`已寫入 NAS ${label}`, `${tgzFileName} (${stat.size} bytes) -> ${nasTargetDir}`);
             }
             const resultIdx = sourceResults.findIndex((r) => r.id === src.id);
             if (resultIdx !== -1)
@@ -368,12 +359,12 @@ export async function runBackup(options) {
         onProgress(90, '產生報告');
         const report = generateReport(backupId, backupMonth, backupDestPathRel, sources, startTime, deleteOldBackup, retentionMonths, deleteActions, sourceResults, null);
         if (nasMounted) {
-            fs.writeFileSync(path.join(backupDestPath, '備份報告.md'), report, 'utf8');
+            fs.writeFileSync(path.join(backupDestPath, reportFileName), report, 'utf8');
         }
         else {
             const reportDir = path.join(tempRoot, 'report');
             fs.mkdirSync(reportDir, { recursive: true });
-            fs.writeFileSync(path.join(reportDir, '備份報告.md'), report, 'utf8');
+            fs.writeFileSync(path.join(reportDir, reportFileName), report, 'utf8');
             await ensureNasPath(nas, backupDestPathRel);
             await uploadDirViaSmbclient(nas, backupDestPathRel, reportDir, undefined, log);
         }
@@ -391,17 +382,17 @@ export async function runBackup(options) {
         try {
             if (nasMounted && backupDestPath) {
                 fs.mkdirSync(backupDestPath, { recursive: true });
-                fs.writeFileSync(path.join(backupDestPath, '備份報告.md'), failReport, 'utf8');
-                log('寫入失敗報告 (NAS 掛載點)', path.join(backupDestPath, '備份報告.md'));
+                fs.writeFileSync(path.join(backupDestPath, reportFileName), failReport, 'utf8');
+                log('寫入失敗報告 (NAS 掛載點)', path.join(backupDestPath, reportFileName));
             }
             else if (useSmbclientFallback && backupDestPath) {
                 const reportDir = path.join(tempRoot, 'report');
                 fs.mkdirSync(reportDir, { recursive: true });
-                fs.writeFileSync(path.join(reportDir, '備份報告.md'), failReport, 'utf8');
+                fs.writeFileSync(path.join(reportDir, reportFileName), failReport, 'utf8');
                 try {
                     await ensureNasPath(nas, backupDestPathRel);
                     await uploadDirViaSmbclient(nas, backupDestPathRel, reportDir, undefined, log);
-                    log('寫入失敗報告 (smbclient)', `${backupDestPathRel}/備份報告.md`);
+                    log('寫入失敗報告 (smbclient)', `${backupDestPathRel}/${reportFileName}`);
                 }
                 catch (uploadErr) {
                     console.error('[runBackup] 失敗報告 smbclient 上傳失敗:', uploadErr);
@@ -458,6 +449,17 @@ function formatTaipei(d) {
     const get = (t) => parts.find((p) => p.type === t)?.value ?? '';
     return `${get('year')}-${get('month')}-${get('day')} ${get('hour')}:${get('minute')}:${get('second')}`;
 }
+/** 格式化為 Asia/Taipei 時區的日期，格式：YYYYMMDD（用於報告檔名） */
+function formatTaipeiDate(d) {
+    const parts = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Asia/Taipei',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+    }).formatToParts(d);
+    const get = (t) => parts.find((p) => p.type === t)?.value ?? '';
+    return `${get('year')}${get('month')}${get('day')}`;
+}
 function resolveDestPath(src) {
     const base = src.destPath.replace(/\/$/, '');
     if (base === 'mysqldata') {
@@ -467,13 +469,18 @@ function resolveDestPath(src) {
     return base;
 }
 function generateReport(backupId, backupMonth, destPath, sources, startTime, deleteOldBackup, retentionMonths, deleteActions, sourceResults, overallError) {
-    const dirs = new Set();
+    const dirsMap = new Map();
     for (const src of sources) {
-        const base = resolveDestPath(src).split('/')[0];
-        if (base)
-            dirs.add(base);
+        const rel = resolveDestPath(src);
+        const top = rel.split('/')[0];
+        if (!top)
+            continue;
+        const tgzName = `${path.basename(rel)}.tgz`;
+        if (!dirsMap.has(top))
+            dirsMap.set(top, []);
+        dirsMap.get(top).push(tgzName);
     }
-    const topLevelDirs = Array.from(dirs).sort();
+    const topLevelDirs = Array.from(dirsMap.keys()).sort();
     const endTime = new Date();
     const completedCount = sourceResults.filter((r) => r.success).length;
     const totalCount = sourceResults.length;
@@ -519,14 +526,18 @@ ${completionSection}
 
 \`\`\`
 ${destPath}/
-${topLevelDirs.map((d) => `├── ${d}/`).join('\n')}
+${topLevelDirs
+        .map((d) => `├── ${d}/\n${dirsMap.get(d).map((f) => `│   ├── ${f}`).join('\n')}`)
+        .join('\n')}
 \`\`\`
+
+各 .tgz 為對應來源目錄的壓縮檔，系統不會自動解壓，如需查看內容請自行手動解壓縮（\`tar xzf 檔名.tgz\`）。
 
 ## 備份來源
 
-| 項目 | 來源路徑 | 目的路徑 |
+| 項目 | 來源路徑 | 目的檔案 |
 |------|----------|----------|
-${sources.map((s) => `| ${s.label || s.id} | ${s.sourcePath} | ${resolveDestPath(s)} |`).join('\n')}
+${sources.map((s) => `| ${s.label || s.id} | ${s.sourcePath} | ${resolveDestPath(s)}.tgz |`).join('\n')}
 
 ---
 ${deleteSection}

@@ -1,0 +1,81 @@
+
+# System
+.DS_Store
+Thumbs.db
+
+
+# Environment variables
+env/
+venv/
+.venv/
+.env
+.env.local
+.env.*.local
+.vscode
+
+# .NET（CrownDx.Api 等）
+**/bin/
+**/obj/
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-error.log*
+yarn-debug.log*
+pnpm-debug.log*
+dist/
+build/
+.next/
+
+# Logs
+*.log
+logs/
+
+# TypeScript / Vite 建置產物
+*.tsbuildinfo
+.tsc-node-out/
+*.local
+
+# Lint / 測試快取
+.eslintcache
+coverage/
+
+# 憑證與金鑰（此工具涉及 SSH／NAS，務必排除）
+*.pem
+*.key
+id_rsa
+id_rsa.*
+*.ppk
+
+# Database
+*.db
+*.sqlite3
+
+# IDE
+.vscode/
+.idea/
+.cursorignore
+
+# Local data
+data/*.db
+
+# Test files
+# 注意：tests/ 目錄和 1.docs/reviews/ 目錄應被版本控制
+# 只忽略測試產生的臨時文件
+test_materials/
+*.test.db
+*.test.sqlite3
+test_output/
+test_results/
+
+# Temporary files
+temp/
+
+
+# Backup files (檔案系統自動產生的備份)
+* 2.*
+* (1).*
+* (2).*
+* (3).*
+* 拷貝.*
+* 拷貝2.*
