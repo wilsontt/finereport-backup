@@ -79,7 +79,7 @@ async function smbclientPutFile(
 ): Promise<void> {
   const host = creds.host.replace(/^smb:\/\//, '').trim();
   const address = `//${host}/${creds.share}`;
-  const args = ['-s', SMB_CONF_PATH, address, '-U', `${creds.username}%${creds.password}`, '-N'];
+    const args = ['-s', SMB_CONF_PATH, address, '-U', `${creds.username}%${creds.password}`];
   if (creds.domain && creds.domain !== 'WORKGROUP') {
     args.splice(3, 0, '-W', creds.domain);
   }
