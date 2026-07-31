@@ -218,9 +218,41 @@ docker compose exec finereport-backup-backend smbclient --version
 docker compose logs finereport-backup-backend | grep "啟動檢測"
 ```
 
-> 註：`mount -t cifs` 若要在容器內實際掛載，容器需具備 `CAP_SYS_ADMIN`（或 `privileged`）權限；若無，掛載會失敗並自動退回 `smbclient` 流程，備份仍可正常運作。
+#### CIFS 掛載權限（建議必設，避免大檔走 smbclient）
 
-### NAS 連線：容器 `NT_STATUS_HOST_UNREACHABLE`（host 主機可連、容器不可連）
+`Dockerfile.backend` 已安裝 `cifs-utils`，但容器預設**沒有**掛載權限。未設定時 log 會出現：
+
+```text
+ERR_NAS_MOUNT: Unable to apply new capability set
+→ mount 失敗，改用 smbclient 上傳
+```
+
+小檔可能仍成功；**GB 級**（如 `jar.tgz`）用 `smbclient get/put` 常出現 `NT_STATUS_CONNECTION_RESET` / `CONNECTION_DISCONNECTED`，備份失敗。
+
+在 **正式** `enterprise-portal/deploy/docker-compose.yml` 的 **`finereport-backup-backend`**（不是 frontend）加入：
+
+```yaml
+finereport-backup-backend:
+  cap_add:
+    - SYS_ADMIN
+  security_opt:
+    - apparmor:unconfined
+  # 若仍 Unable to apply new capability set，改用：
+  # privileged: true
+```
+
+套用後：
+
+```bash
+cd /opt/apps/enterprise-portal/deploy
+docker compose up -d --force-recreate finereport-backup-backend
+docker compose logs finereport-backup-backend --tail=30 | grep -iE 'mount|NAS|啟動'
+```
+
+成功時備份作業日誌應為 `mount 成功`／`使用既有掛載點`，**不應**再出現「改用 smbclient 上傳」。  
+範例片段見 `deploy/docker-compose.finereport-backup.example.yml`。
+
+### NAS 連線：容器 `NT_STATUS_HOST_UNREACHABLE` / `IO_TIMEOUT`（host 主機可連、容器不可連）
 
 **症狀**：備份在 SMB 上傳階段失敗，作業日誌出現空白的 `ERR_NAS_UPLOAD:` 或 `do_connect: Connection to <NAS> failed (Error NT_STATUS_HOST_UNREACHABLE)`；但在 ds1 **主機**上 `ping`、`nc -vz <NAS> 445` 皆正常。
 
@@ -251,7 +283,24 @@ finereport-backup-backend:
 
 **解法 B（較乾淨）：維持 bridge，由網管在 NAS／防火牆放行 Docker 網段**（如 `172.18.0.0/16`）到 NAS 的 445/tcp，即不需改 `network_mode`。
 
-> 備份失敗時，後端會將 smbclient 的 stdout/stderr 完整輸出寫入「作業日誌」與「備份失敗報告」，可據此區分是 `NT_STATUS_HOST_UNREACHABLE`（網路）、`NT_STATUS_LOGON_FAILURE`（認證）或 `NT_STATUS_ACCESS_DENIED`（權限）。
+> 備份失敗時，後端會將 smbclient 的 stdout/stderr 完整輸出寫入「作業日誌」與「備份失敗報告」，可據此區分是 `NT_STATUS_HOST_UNREACHABLE`／`IO_TIMEOUT`（網路）、`NT_STATUS_LOGON_FAILURE`（認證）或 `NT_STATUS_ACCESS_DENIED`（權限）。
+
+### 大檔 SMB：`NT_STATUS_CONNECTION_RESET` / `CONNECTION_DISCONNECTED`
+
+**症狀**：445 已通、`smbclient ls` 成功、小檔／備份報告可寫入 NAS，但 `jar.tgz`（約 1GB+）在 `smbclient put`（或手動 `get`）中途失敗；本機／容器內殘檔遠小於完整大小（例如只下到數十 MB）。
+
+**根因**：掛載失敗後走 smbclient 備援，長時間大檔傳輸不穩（與防火牆「完全不通」不同）。
+
+**解法**：依上方〈CIFS 掛載權限〉讓容器成功 `mount -t cifs`，讓 SFTP 直接寫入掛載點，避開大檔 `smbclient put`。
+
+**手動重現**（不必重新打包；可用既有月份的 `jar.tgz`）：
+
+```bash
+# 若 get 也 RESET 且檔案只有數十 MB，即證實大檔 smbclient 不穩
+smbclient "//10.9.82.22/<share>" -A /tmp/smbauth -c \
+  "cd \"4.備份記錄/KE/2026/FineReport/202606/webroot\"; get jar.tgz /tmp/jar-test.tgz"
+ls -lh /tmp/jar-test.tgz   # 完整約 1.x GB；若只有 ~40MB 即中斷
+```
 
 ### 啟動自我檢測
 

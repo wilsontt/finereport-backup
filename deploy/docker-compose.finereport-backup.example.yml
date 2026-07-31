@@ -5,6 +5,10 @@
 #
 #   finereport-backup-frontend  → context 為 enterprise-portal 根目錄（需含 0.shared-ui）
 #   finereport-backup-backend   → context 為 4.FineReport備份工具 目錄
+#
+# 正式部署檔位置（生效處）：
+#   /opt/apps/enterprise-portal/deploy/docker-compose.yml
+#   → 只改 finereport-backup-backend（前端不需要 CAP_SYS_ADMIN）
 
 services:
   finereport-backup-frontend:
@@ -26,6 +30,15 @@ services:
     restart: unless-stopped
     networks:
       - portal-network
+    # CIFS 掛載（mount -t cifs）必要權限。未設定時會出現
+    # ERR_NAS_MOUNT: Unable to apply new capability set，並退回 smbclient。
+    # 大檔（如 jar.tgz > 1GB）走 smbclient 易 NT_STATUS_CONNECTION_RESET，應優先掛載。
+    cap_add:
+      - SYS_ADMIN
+    security_opt:
+      - apparmor:unconfined
+    # 若 recreate 後 log 仍 Unable to apply new capability set，改用：
+    # privileged: true
     # 可選：若 smbclient 不在預設 PATH，指定絕對路徑
     # environment:
     #   SMBCLIENT_PATH: /usr/bin/smbclient
