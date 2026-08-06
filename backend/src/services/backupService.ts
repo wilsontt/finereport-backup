@@ -13,11 +13,20 @@ import type { SshCredentials } from './sshService.js';
 import type { NasCredentials } from './nasService.js';
 import { fileURLToPath } from 'url';
 import { mountNas, unmountNas, createNasDirectory, resolveSmbclientBin } from './nasService.js';
+import {
+  NAS_CHUNK_BYTES,
+  shouldChunkArchive,
+  partFilePrefix,
+  formatRestoreHint,
+} from '../lib/nasChunk.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SMB_CONF_PATH = path.join(__dirname, '..', '..', 'smb.conf');
 
-const SOURCE_DOWNLOAD_TIMEOUT_MS = 5 * 60 * 1000; // 5 分鐘（每個來源）
+/** 單一檔／分卷傳輸逾時 */
+const SOURCE_PART_TIMEOUT_MS = 5 * 60 * 1000;
+/** 單一來源（含多分卷）總逾時 */
+const SOURCE_TOTAL_TIMEOUT_MS = 45 * 60 * 1000;
 
 interface BackupSource {
   id: string;
@@ -31,6 +40,21 @@ interface SourceResult {
   label: string;
   success: boolean;
   error?: string;
+  /** 相對備份月份目錄的目的檔（如 webroot/jar.tgz.part000） */
+  destFiles?: string[];
+  chunked?: boolean;
+}
+
+interface DeliveredFile {
+  fileName: string;
+  localPath: string;
+  size: number;
+}
+
+interface TransferResult {
+  chunked: boolean;
+  baseTgzName: string;
+  files: DeliveredFile[];
 }
 
 export interface OperationLog {
@@ -201,12 +225,55 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
 }
 
 
+function fsyncFile(filePath: string): void {
+  const fd = fs.openSync(filePath, 'r+');
+  try {
+    fs.fsyncSync(fd);
+  } finally {
+    fs.closeSync(fd);
+  }
+}
+
+async function sftpFastGet(sftp: SftpClient, remotePath: string, localPath: string): Promise<void> {
+  await (sftp as unknown as { fastGet: (r: string, l: string) => Promise<string> }).fastGet(
+    remotePath,
+    localPath
+  );
+}
+
+async function remoteFileSizeBytes(
+  creds: SshCredentials,
+  sudoPassword: string,
+  remoteFile: string
+): Promise<number> {
+  const esc = remoteFile.replace(/"/g, '\\"');
+  const cmd = `stat -c%s "${esc}" 2>/dev/null || wc -c < "${esc}"`;
+  const { code, stdout, stderr } = await execWithSudo(creds, sudoPassword, cmd, true);
+  const n = parseInt((stdout || '').trim().split(/\s+/).pop() ?? '', 10);
+  if (code !== 0 || !Number.isFinite(n) || n < 0) {
+    throw new Error(
+      `無法取得遠端檔案大小 (${remoteFile}): ${stderr?.trim() || stdout?.trim() || `exit=${code}`}`
+    );
+  }
+  return n;
+}
+
+function assertLocalSize(localPath: string, expectedSize: number, label: string): void {
+  fsyncFile(localPath);
+  const size = fs.statSync(localPath).size;
+  if (size === 0) {
+    throw new Error(`${label} 大小為 0：${localPath}`);
+  }
+  if (size !== expectedSize) {
+    throw new Error(`${label} 大小不符：期望 ${expectedSize}，實際 ${size}（${localPath}）`);
+  }
+}
+
 /**
- * 將遠端來源目錄打包為 .tgz 並透過 SFTP 下載至本機，目的端保留壓縮檔不解壓。
- * 解壓縮交由使用者依需要自行手動執行（部分來源檔案數量極大，例如 schedule
- * 目錄可能有數萬個小檔案，本機解壓會大幅拖慢備份流程）。
+ * 遠端打包為 .tgz；超過 NAS_CHUNK_BYTES 則遠端 split 後逐卷下載。
+ * 目的端保留壓縮檔／分卷不解壓。
  */
-async function downloadSourceAsTgz(
+async function transferSourceArchive(
   sftp: SftpClient,
   creds: SshCredentials,
   sudoPassword: string,
@@ -214,13 +281,15 @@ async function downloadSourceAsTgz(
   localTgzPath: string,
   onLog?: (label: string, command: string, output?: string) => void,
   onProgress?: (msg: string) => void
-): Promise<void> {
+): Promise<TransferResult> {
   const lastSlash = remoteSrc.lastIndexOf('/');
   const remoteParentDir = remoteSrc.substring(0, lastSlash);
   const baseName = remoteSrc.substring(lastSlash + 1);
   const remoteTgz = `${remoteSrc}.tgz`;
+  const baseTgzName = `${baseName}.tgz`;
+  const destDir = path.dirname(localTgzPath);
+  fs.mkdirSync(destDir, { recursive: true });
 
-  // 1. 遠端打包
   onProgress?.(`遠端打包 ${baseName}`);
   const escParent = remoteParentDir.replace(/"/g, '\\"');
   const escBase = baseName.replace(/"/g, '\\"');
@@ -234,26 +303,77 @@ async function downloadSourceAsTgz(
     throw new Error(`遠端打包失敗 (${baseName}): ${tarStderr?.trim() || `exit=${tarCode}`}`);
   }
 
-  // 2. SFTP 下載 .tgz
-  onProgress?.(`下載壓縮包 ${baseName}.tgz`);
-  onLog?.(`SFTP 下載 ${baseName}.tgz`, `fastGet ${remoteTgz} -> ${localTgzPath}`);
-  try {
-    // ssh2-sftp-client 的 fastGet 存在於執行期但未列入型別宣告，以型別斷言繞過
-    await (sftp as unknown as { fastGet: (r: string, l: string) => Promise<string> }).fastGet(remoteTgz, localTgzPath);
-  } catch (e) {
-    throw new Error(`SFTP 下載 .tgz 失敗 (${baseName}): ${(e as Error).message}`);
+  const archiveSize = await remoteFileSizeBytes(creds, sudoPassword, remoteTgz);
+  onLog?.(`遠端壓縮包大小 ${baseName}`, `${archiveSize} bytes（閾值 ${NAS_CHUNK_BYTES}）`);
+
+  if (!shouldChunkArchive(archiveSize)) {
+    onProgress?.(`下載壓縮包 ${baseTgzName}`);
+    onLog?.(`SFTP 下載 ${baseTgzName}`, `fastGet ${remoteTgz} -> ${localTgzPath}`);
+    await withTimeout(
+      sftpFastGet(sftp, remoteTgz, localTgzPath),
+      SOURCE_PART_TIMEOUT_MS,
+      `SFTP 下載 ${baseTgzName}`
+    );
+    await execWithSudo(creds, sudoPassword, `rm -f "${escTgz}"`, true);
+    assertLocalSize(localTgzPath, archiveSize, `驗證 ${baseTgzName}`);
+    onLog?.(`驗證 ${baseName}`, `本機壓縮包大小 ${archiveSize} bytes`);
+    return {
+      chunked: false,
+      baseTgzName,
+      files: [{ fileName: baseTgzName, localPath: localTgzPath, size: archiveSize }],
+    };
   }
 
-  // 3. 刪除遠端暫存 .tgz
-  const escTgzClean = remoteTgz.replace(/"/g, '\\"');
-  await execWithSudo(creds, sudoPassword, `rm -f "${escTgzClean}"`, true);
-
-  // 4. 驗證本機壓縮檔存在且非空
-  const stat = fs.statSync(localTgzPath);
-  if (stat.size === 0) {
-    throw new Error(`下載壓縮包為空 (${baseName}.tgz)，請檢查遠端來源路徑`);
+  const splitPrefix = `${remoteTgz}.part`;
+  const escPrefix = splitPrefix.replace(/"/g, '\\"');
+  const splitCmd = `split -b ${NAS_CHUNK_BYTES} -d -a 3 "${escTgz}" "${escPrefix}"`;
+  onProgress?.(`遠端分卷 ${baseName}（每卷 ${NAS_CHUNK_BYTES} bytes）`);
+  onLog?.(`遠端分卷 ${baseName}`, splitCmd);
+  const { code: splitCode, stderr: splitStderr } = await execWithSudo(
+    creds, sudoPassword, splitCmd, true
+  );
+  if (splitCode !== 0) {
+    throw new Error(`遠端分卷失敗 (${baseName}): ${splitStderr?.trim() || `exit=${splitCode}`}`);
   }
-  onLog?.(`驗證 ${baseName}`, `本機壓縮包大小 ${stat.size} bytes`);
+  await execWithSudo(creds, sudoPassword, `rm -f "${escTgz}"`, true);
+
+  const listCmd = `ls -1 "${escTgz}.part"[0-9][0-9][0-9] 2>/dev/null | sort`;
+  const { code: listCode, stdout: listOut } = await execWithSudo(
+    creds, sudoPassword, listCmd, true
+  );
+  const remoteParts = (listOut || '')
+    .split('\n')
+    .map((l) => l.trim())
+    .filter(Boolean);
+  if (listCode !== 0 || remoteParts.length === 0) {
+    throw new Error(`遠端分卷後找不到 part 檔 (${baseName})，prefix=${partFilePrefix(baseTgzName)}`);
+  }
+  onLog?.(`遠端分卷清單 ${baseName}`, `${remoteParts.length} 卷`, remoteParts.join('\n'));
+
+  const files: DeliveredFile[] = [];
+  for (let i = 0; i < remoteParts.length; i++) {
+    const remotePart = remoteParts[i];
+    const fileName = path.posix.basename(remotePart);
+    const localPart = path.join(destDir, fileName);
+    const partSize = await remoteFileSizeBytes(creds, sudoPassword, remotePart);
+    onProgress?.(`分卷下載 ${i + 1}/${remoteParts.length}：${fileName}`);
+    onLog?.(
+      `SFTP 下載 ${fileName}`,
+      `fastGet ${remotePart} -> ${localPart}（${partSize} bytes）`
+    );
+    await withTimeout(
+      sftpFastGet(sftp, remotePart, localPart),
+      SOURCE_PART_TIMEOUT_MS,
+      `SFTP 下載 ${fileName}`
+    );
+    const escPart = remotePart.replace(/"/g, '\\"');
+    await execWithSudo(creds, sudoPassword, `rm -f "${escPart}"`, true);
+    assertLocalSize(localPart, partSize, `驗證 ${fileName}`);
+    onLog?.(`驗證 ${fileName}`, `本機分卷大小 ${partSize} bytes`);
+    files.push({ fileName, localPath: localPart, size: partSize });
+  }
+
+  return { chunked: true, baseTgzName, files };
 }
 
 /**
@@ -412,36 +532,69 @@ export async function runBackup(options: BackupOptions): Promise<void> {
       const localPathAbs = path.resolve(localPath);
       fs.mkdirSync(path.dirname(localPathAbs), { recursive: true });
       const localTgzPath = `${localPathAbs}.tgz`;
+      const nasTargetDir = `${backupDestPathRel}/${path.dirname(destPath)}`.replace(/\/\.$/, '');
+      const destDirRel = path.posix.dirname(destPath);
+      const toDestRel = (fileName: string) =>
+        !destDirRel || destDirRel === '.' ? fileName : `${destDirRel}/${fileName}`;
+
+      let transfer: TransferResult;
       try {
-        await withTimeout(
-          downloadSourceAsTgz(
-            sftp, ssh, sudoPassword,
-            remoteSrc, localTgzPath,
+        transfer = await withTimeout(
+          transferSourceArchive(
+            sftp,
+            ssh,
+            sudoPassword,
+            remoteSrc,
+            localTgzPath,
             log,
             (msg) => onProgress(40 + Math.floor((completed / total) * 45), msg)
           ),
-          SOURCE_DOWNLOAD_TIMEOUT_MS,
-          `打包下載 ${label}`
+          SOURCE_TOTAL_TIMEOUT_MS,
+          `打包傳輸 ${label}`
         );
       } catch (e) {
         await sftp.end();
         throw new Error(`打包下載失敗 (${label}): ${(e as Error).message}`);
       }
 
-      const tgzFileName = path.basename(localTgzPath);
-      const nasTargetDir = `${backupDestPathRel}/${path.dirname(destPath)}`.replace(/\/\.$/, '');
-
       if (useSmbclientFallback) {
-        onProgress(40 + Math.floor(((completed + 0.5) / total) * 45), `SMB 上傳 ${label}: smbclient put ${tgzFileName} -> ${nasTargetDir}`);
-        log(`SMB 上傳 ${label}`, `smbclient put ${tgzFileName} -> ${nasTargetDir}`);
-        await uploadFileViaSmbclient(nas, nasTargetDir, localTgzPath, log);
-        try { fs.rmSync(localTgzPath); } catch { /* ignore */ }
+        for (let i = 0; i < transfer.files.length; i++) {
+          const f = transfer.files[i];
+          const progressLabel =
+            transfer.files.length > 1
+              ? `分卷上傳 ${i + 1}/${transfer.files.length}：${f.fileName}`
+              : `SMB 上傳 ${f.fileName}`;
+          onProgress(
+            40 + Math.floor(((completed + (i + 1) / transfer.files.length) / total) * 45),
+            progressLabel
+          );
+          log(
+            `SMB 上傳 ${label}`,
+            `smbclient put ${f.fileName} -> ${nasTargetDir} (${f.size} bytes)`
+          );
+          await uploadFileViaSmbclient(nas, nasTargetDir, f.localPath, log);
+          try {
+            fs.rmSync(f.localPath);
+          } catch {
+            /* ignore */
+          }
+        }
       } else {
-        const stat = fs.statSync(localTgzPath);
-        log(`已寫入 NAS ${label}`, `${tgzFileName} (${stat.size} bytes) -> ${nasTargetDir}`);
+        for (const f of transfer.files) {
+          assertLocalSize(f.localPath, f.size, `NAS 寫入核對 ${f.fileName}`);
+          log(
+            `已寫入 NAS ${label}`,
+            `${f.fileName} (${f.size} bytes) -> ${nasTargetDir}`
+          );
+        }
       }
+
       const resultIdx = sourceResults.findIndex((r) => r.id === src.id);
-      if (resultIdx !== -1) sourceResults[resultIdx].success = true;
+      if (resultIdx !== -1) {
+        sourceResults[resultIdx].success = true;
+        sourceResults[resultIdx].chunked = transfer.chunked;
+        sourceResults[resultIdx].destFiles = transfer.files.map((f) => toDestRel(f.fileName));
+      }
       completed++;
     }
 
@@ -603,9 +756,13 @@ function generateReport(
     const rel = resolveDestPath(src);
     const top = rel.split('/')[0];
     if (!top) continue;
-    const tgzName = `${path.basename(rel)}.tgz`;
+    const result = sourceResults.find((r) => r.id === src.id);
+    const names =
+      result?.destFiles && result.destFiles.length > 0
+        ? result.destFiles.map((f) => path.posix.basename(f))
+        : [`${path.basename(rel)}.tgz`];
     if (!dirsMap.has(top)) dirsMap.set(top, []);
-    dirsMap.get(top)!.push(tgzName);
+    dirsMap.get(top)!.push(...names);
   }
   const topLevelDirs = Array.from(dirsMap.keys()).sort();
   const endTime = new Date();
@@ -613,6 +770,7 @@ function generateReport(
   const completedCount = sourceResults.filter((r) => r.success).length;
   const totalCount = sourceResults.length;
   const isFailure = overallError !== null;
+  const anyChunked = sourceResults.some((r) => r.chunked);
   const completionSection = `## 完成度
 
 已完成 ${completedCount} / 共 ${totalCount} 個來源
@@ -637,9 +795,30 @@ ${deleteActions.map((a) => `| ${a.label} | \`${a.command}\` |`).join('\n')}
 未執行刪除（使用者選擇保留遠端備份）。
 `;
 
+  const restoreSection = anyChunked
+    ? `## 分卷還原
+
+超過 30MB 的來源會拆成 \`.tgz.part000\` 起之連續分卷。還原範例：
+
+\`\`\`bash
+${formatRestoreHint('jar.tgz')}
+\`\`\`
+
+（將 \`jar.tgz\` 換成實際檔名前綴即可。）
+`
+    : '';
+
   const titleLine = isFailure
     ? `# FineReport 備份報告（失敗）\n\n失敗原因：${overallError!.message}\n`
     : `# FineReport 備份報告\n`;
+
+  const destFileCell = (s: BackupSource): string => {
+    const r = sourceResults.find((x) => x.id === s.id);
+    if (r?.destFiles && r.destFiles.length > 0) {
+      return r.destFiles.join('<br>');
+    }
+    return `${resolveDestPath(s)}.tgz`;
+  };
 
   return `${titleLine}
 備份 ID: ${backupId}
@@ -663,13 +842,13 @@ ${topLevelDirs
   .join('\n')}
 \`\`\`
 
-各 .tgz 為對應來源目錄的壓縮檔，系統不會自動解壓，如需查看內容請自行手動解壓縮（\`tar xzf 檔名.tgz\`）。
+各 .tgz（或 .tgz.part* 分卷）為對應來源目錄的壓縮檔，系統不會自動解壓。單一分卷請 \`tar xzf\`；多分卷請先 \`cat\` 合併再解壓。
 
-## 備份來源
+${restoreSection}## 備份來源
 
 | 項目 | 來源路徑 | 目的檔案 |
 |------|----------|----------|
-${sources.map((s) => `| ${s.label || s.id} | ${s.sourcePath} | ${resolveDestPath(s)}.tgz |`).join('\n')}
+${sources.map((s) => `| ${s.label || s.id} | ${s.sourcePath} | ${destFileCell(s)} |`).join('\n')}
 
 ---
 ${deleteSection}

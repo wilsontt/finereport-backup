@@ -1,7 +1,7 @@
 # FineReport 備份工具 — NAS 分卷上傳設計
 
 ![版本](https://img.shields.io/badge/版本-v0.1-blue)
-![狀態](https://img.shields.io/badge/狀態-待實作-yellow)
+![狀態](https://img.shields.io/badge/狀態-已實作-green)
 ![文件類型](https://img.shields.io/badge/文件類型-技術設計-blue)
 
 **專案**：FineReport 備份工具  

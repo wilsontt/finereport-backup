@@ -38,14 +38,14 @@
 - Create: `backend/src/lib/nasChunk.ts`
 - Create: `backend/src/lib/nasChunk.test.ts`（若專案尚無 test runner，改以可匯出函式 + 最小 `node --test`／或先略過測試改 Task 註記；優先檢查 `backend/package.json` scripts）
 
-- [ ] 確認 `backend/package.json` 是否已有測試指令；若無，使用 Node 內建 `node --test` 或補上最小測試腳本
-- [ ] 實作並匯出：
+- [x] 確認 `backend/package.json` 是否已有測試指令；若無，使用 Node 內建 `node --test` 或補上最小測試腳本
+- [x] 實作並匯出：
   - `NAS_CHUNK_BYTES`
   - `shouldChunkArchive(sizeBytes: number): boolean`
   - `partFilePrefix(tgzPathOrName: string): string` → e.g. `jar.tgz.part`
   - `formatRestoreHint(baseTgzName: string): string`
-- [ ] 撰寫測試：0、30MiB 邊界、30MiB+1、命名與還原文案
-- [ ] 執行測試通過
+- [x] 撰寫測試：0、30MiB 邊界、30MiB+1、命名與還原文案
+- [x] 執行測試通過
 
 ---
 
@@ -54,7 +54,7 @@
 **Files:**
 - Modify: `backend/src/services/backupService.ts`
 
-- [ ] 將 `downloadSourceAsTgz` 重構（或新建 `transferSourceArchive`）為：
+- [x] 將 `downloadSourceAsTgz` 重構（或新建 `transferSourceArchive`）為：
   1. 遠端 `tar czf`
   2. 遠端 `stat -c%s`（若失敗再試 `wc -c < file`）取得大小並寫入作業日誌
   3. `size > NAS_CHUNK_BYTES`：
@@ -65,8 +65,8 @@
      - 比對本機 size 與遠端 size；失敗 throw
      - 刪遠端該 part
   4. 否則：維持單一 `.tgz` 下載（現況）
-- [ ] 來源級逾時：單卷 5 分鐘；來源總計建議 45 分鐘
-- [ ] 作業日誌含：遠端分卷、各 part 下載與大小
+- [x] 來源級逾時：單卷 5 分鐘；來源總計建議 45 分鐘
+- [x] 作業日誌含：遠端分卷、各 part 下載與大小
 
 ---
 
@@ -75,10 +75,10 @@
 **Files:**
 - Modify: `backend/src/services/backupService.ts`
 
-- [ ] **掛載成功**：各檔（整包或 part）的 `localPath` 即為掛載點下路徑；下載後 `fsync`（開啟檔案 `fs.openSync` + `fs.fsyncSync`）再 `stat` 確認 size
-- [ ] **備援**：對每個本地檔呼叫既有 `uploadFileViaSmbclient`；成功後可刪本地暫存
-- [ ] 禁止「多分卷時只 put 第一個就標成功」；全部 part 完成才 `sourceResults[].success = true`
-- [ ] 進度 message 顯示 `分卷上傳 ${i+1}/${n}：檔名`
+- [x] **掛載成功**：各檔（整包或 part）的 `localPath` 即為掛載點下路徑；下載後 `fsync`（開啟檔案 `fs.openSync` + `fs.fsyncSync`）再 `stat` 確認 size
+- [x] **備援**：對每個本地檔呼叫既有 `uploadFileViaSmbclient`；成功後可刪本地暫存
+- [x] 禁止「多分卷時只 put 第一個就標成功」；全部 part 完成才 `sourceResults[].success = true`
+- [x] 進度 message 顯示 `分卷上傳 ${i+1}/${n}：檔名`
 
 ---
 
@@ -87,9 +87,9 @@
 **Files:**
 - Modify: `backend/src/services/backupService.ts`（`generateReport`）
 
-- [ ] 擴充 `SourceResult`（或並列結構）記錄實際目的檔列表／是否分卷
-- [ ] 目錄結構與「目的檔案」欄正確列出 `.tgz` 或 `.tgz.part000`…
-- [ ] 若任一來源分卷，報告加一節「分卷還原」含 `cat` 範例
+- [x] 擴充 `SourceResult`（或並列結構）記錄實際目的檔列表／是否分卷
+- [x] 目錄結構與「目的檔案」欄正確列出 `.tgz` 或 `.tgz.part000`…
+- [x] 若任一來源分卷，報告加一節「分卷還原」含 `cat` 範例
 
 ---
 
@@ -100,17 +100,17 @@
 - Modify: `1.docs/FineReport備份工具-備份優化構想.md`
 - Modify: `1.docs/FineReport備份工具-NAS分卷上傳設計.md`（狀態改「實作中／已實作」）
 
-- [ ] README 備份流程改為：>30MB 遠端 split、逐卷傳、還原指令
-- [ ] README「大檔 SMB」段補充：已改分卷；仍建議 CIFS 權限
-- [ ] 優化構想表新增項目「NAS 30MB 分卷上傳」狀態
-- [ ] 設計文件狀態徽章更新
+- [x] README 備份流程改為：>30MB 遠端 split、逐卷傳、還原指令
+- [x] README「大檔 SMB」段補充：已改分卷；仍建議 CIFS 權限
+- [x] 優化構想表新增項目「NAS 30MB 分卷上傳」狀態
+- [x] 設計文件狀態徽章更新
 
 ---
 
 ## Task 6: 建置驗證
 
-- [ ] `cd backend && npm run lint && npm run build`（及測試若有）
-- [ ] 以文字驗證清單提供運維：小檔 <30MB 仍單一 `.tgz`；大檔出現 `.part000+`；NAS 檔案 size 非 0
+- [x] `cd backend && npm run lint && npm run build`（及測試若有）
+- [x] 以文字驗證清單提供運維：小檔 <30MB 仍單一 `.tgz`；大檔出現 `.part000+`；NAS 檔案 size 非 0
 
 ---
 

@@ -53,8 +53,8 @@ docker build -f Dockerfile.frontend -t finereport-backup-frontend .
 **備份執行流程**（`services/backupService.ts` + `services/backupExecutor.ts`）：
 1. 以 `mount_smbfs`（macOS）或 `mount -t cifs`（Linux）掛載 NAS；若掛載失敗，改用 `smbclient` 作為備援
 2. SSH 連至遠端 → 以 sudo 執行 `cp -R`，將檔案複製至遠端暫存路徑
-3. 每個來源統一以遠端 `tar czf` 打包 → `fastGet` 下載單一 `.tgz` 至本機（NAS 掛載點或暫存目錄）→ 刪除遠端暫存 `.tgz`；**目的端不解壓**，僅保留 `.tgz`（節省空間、避免深層路徑問題、需要時自行手動解壓）；僅建立目的目錄第一層；每來源 5 分鐘 timeout。
-4. 若使用 smbclient 備援：透過 `smbclient put` 將各來源的 `.tgz` 上傳至 NAS
+3. 每個來源遠端 `tar czf`；若 `.tgz` > 30MB 則遠端 `split` 為 `.tgz.part000`…，再逐卷 `fastGet` 至掛載點或暫存；**目的端不解壓**（分卷需手動 `cat` 合併後再 `tar xzf`）；每卷核對大小；單卷 5 分鐘／來源合計 45 分鐘 timeout。
+4. 若使用 smbclient 備援：逐卷（或整包 ≤30MB）`smbclient put` 上傳至 NAS
 5. 對暫存目錄執行 `chown`、依設定刪除舊備份、產生 Markdown 備份報告（檔名：`yyyyMMdd_備份年月_FineReport備份報告.md`）
 
 **可靠性機制**（v1.3 新增）：
