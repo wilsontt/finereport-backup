@@ -52,6 +52,7 @@
 | 3b | 報告必產生＋完成度＋失敗也寫 NAS | 可靠性 | ✅ P0 已完成 | `backupService.ts`、`backupExecutor.ts` |
 | 3c | SFTP／整體逾時保護 | 解 C 情境 | ✅ P1 已完成 | `backupService.ts`、`backupExecutor.ts` |
 | 4 | 進度／日誌／報告持久化 | 解 B 情境（根治） | P2（後續里程碑） | 後端 + 儲存層 |
+| 5 | NAS >30MB 分卷上傳（掛載／smbclient 一律） | 降低大檔 SMB／CIFS 傳輸失敗 | 📋 設計／PLAN 已完成，待實作 | `backupService.ts`；見 [NAS分卷上傳設計](./FineReport備份工具-NAS分卷上傳設計.md)、[PLAN](./FineReport備份工具-NAS分卷上傳-PLAN.md) |
 
 ## 5. 作業內容（技術設計重點）
 
