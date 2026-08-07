@@ -139,26 +139,31 @@ Session ID 以 `X-Session-Id` 標頭傳遞，儲存於瀏覽器 `sessionStorage`
 ## 備份執行流程
 
 1. 以 `mount_smbfs`（macOS）或 `mount -t cifs`（Linux）掛載 NAS；失敗則以 `smbclient` 備援。
-2. SSH 連至遠端，以 `sudo cp -R` 複製 FineReport 檔案至遠端暫存路徑。
-3. 每個來源目錄以遠端 `tar czf` 打包後：
-   - 壓縮包 **≤ 30MB**：SFTP 下載單一 `.tgz` 至 NAS 掛載點（或本機暫存後 smbclient 上傳）。
-   - 壓縮包 **> 30MB**：遠端 `split -b 30m` 拆成 `.tgz.part000`、`.part001`…，再**逐卷** SFTP／smbclient 傳輸（掛載與備援路徑皆適用），避免單檔過大導致 SMB／CIFS 中斷。
-   - 每卷／整包會核對遠端與本機（目的）檔案大小，不符則該來源失敗。
-   - 目的端**不會自動解壓**；單一分卷請 `tar xzf`；多分卷請先合併：
+2. SSH 連至遠端，以 `sudo cp -R` 複製 FineReport 檔案至遠端暫存路徑，並 `chown`。
+3. **階段一（全部來源先打包）**：各來源遠端 `tar czf`；壓縮包 **> 30MB** 則遠端 `split -b 30m` 為 `.tgz.part000`…（產物先留在 FineReport 暫存）。
+4. **階段二（再一一傳 NAS）**：對每個 `.tgz`／分卷：
+   - SFTP 下載至後端容器**本機暫存**，核對大小（失敗最多重試 3 次）；
+   - 再寫入 NAS：掛載成功則 `copyFile` 至掛載點（分卷放在 `destPath` 子目錄，如 `webroot/plugins/`）；備援則 `smbclient put`（同樣重試＋核對）。
+   - 未分卷仍為 `webroot/plugins.tgz`；有分卷為 `webroot/plugins/plugins.tgz.part000`…。
+   - 目的端不解壓。還原：
      ```bash
+     cd webroot/jar
      cat jar.tgz.part* > jar.tgz && tar xzf jar.tgz
      ```
-   - 僅需建立目的目錄第一層（如 `webroot/`、`mysqldata/`）。
-   - 單一分卷傳輸逾時 5 分鐘；單一來源（含多分卷）總逾時 45 分鐘；整體任務逾時 2 小時。
-4. 若使用 smbclient 備援：對每個 `.tgz` 或 `.tgz.part*` 執行 `smbclient put`。
-5. 依設定刪除舊備份（保留月數）、產生 Markdown 備份報告（檔名格式：`yyyyMMdd_備份年月_FineReport備份報告.md`）。
+   - 單檔傳輸逾時 5 分鐘；單一來源合計 45 分鐘；整體任務 2 小時。
+   - **上傳前會清除**同目的路徑下舊的 `.tgz`／`.tgz.part*`，避免與前次殘留混淆。
+5. 依設定刪除舊備份、產生 Markdown 報告：
+   - **完成度**：應傳數／已成功數／狀態（成功｜失敗｜未執行）；失敗列附失敗檔名與原因；後續未跑來源標「未執行」（非模糊的「未完成」）。
+   - **時間軸**：打包完成、清除舊產物、逐檔上傳成功／失敗、中止原因。
+   - **目錄結構**：僅列實際寫入 NAS 的檔案，並附「計畫 vs 實際」對照。
 
 **可靠性說明：**
 - **備份中重整頁面**：`backupId` 保存於 `sessionStorage`，重整後自動恢復到備份進度畫面並重連 SSE，直到取得最終報告。
 - **任務卡死**：逾時後自動產生失敗報告並結束。
-- **失敗報告**：備份失敗時，報告（含完成度與作業日誌）仍會嘗試寫入 NAS，即使前端失聯也有紀錄。
+- **失敗報告**：備份失敗時，報告（含完成度、時間軸與實際目錄）仍會嘗試寫入 NAS。
+- **大檔截斷**：不再 SFTP 直寫 CIFS；先本機暫存核對再寫 NAS，並對單卷重試，降低 4MiB／16MiB 截斷誤報。
 
-**後端主機系統需求**：`smbclient`、`mount_smbfs`（macOS）或 `mount -t cifs`（Linux）；遠端 FineReport 主機需有 GNU `split`（一般 Linux 皆具備）。
+**後端主機系統需求**：`smbclient`、`mount_smbfs`（macOS）或 `mount -t cifs`（Linux）；遠端 FineReport 主機需有 GNU `split`。
 
 > `smbclient` 為**必要元件**：NAS 瀏覽、建立目錄、smbclient 備援上傳皆依賴它。詳見下方〈smbclient 安裝與疑難排解〉。
 
@@ -255,7 +260,10 @@ docker compose up -d --force-recreate finereport-backup-backend
 docker compose logs finereport-backup-backend --tail=30 | grep -iE 'mount|NAS|啟動'
 ```
 
-成功時備份作業日誌應為 `mount 成功`／`使用既有掛載點`，**不應**再出現「改用 smbclient 上傳」。  
+成功時備份作業日誌應為 `mount 成功`／`使用既有可寫掛載點`，**不應**再出現「改用 smbclient 上傳」。  
+
+> **macOS 注意**：若已用 Finder 掛成 `/Volumes/...`，後端行程常可列目錄但 `mkdir`／寫檔回 `EACCES`（畫面像失敗、NAS 上卻已有目錄）。程式會先檢測既有掛載是否可寫；不可寫則改自行掛到 `/tmp/finereport-nas-*`，或掛載失敗後退回 smbclient。寫入前亦會以 smbclient 預先建立目的目錄。
+
 範例片段見 `deploy/docker-compose.finereport-backup.example.yml`。
 
 ### NAS 連線：容器 `NT_STATUS_HOST_UNREACHABLE` / `IO_TIMEOUT`（host 主機可連、容器不可連）

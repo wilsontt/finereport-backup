@@ -132,6 +132,25 @@ export interface MountResult {
   didMount: boolean;
 }
 
+/**
+ * 檢查掛載點是否可供目前行程寫入（Finder /Volumes 常可讀但對後端行程 mkdir/寫檔 EACCES）
+ */
+function isMountWritable(mountPath: string): boolean {
+  const testFile = path.join(mountPath, `.finereport-wtest-${process.pid}-${Date.now()}.tmp`);
+  try {
+    fs.writeFileSync(testFile, 'ok');
+    fs.rmSync(testFile, { force: true });
+    return true;
+  } catch {
+    try {
+      fs.rmSync(testFile, { force: true });
+    } catch {
+      /* ignore */
+    }
+    return false;
+  }
+}
+
 export async function mountNas(creds: NasCredentials, mountPoint: string): Promise<MountResult> {
   const host = creds.host.replace(/^smb:\/\//, '').trim();
   const share = creds.share;
@@ -141,7 +160,13 @@ export async function mountNas(creds: NasCredentials, mountPoint: string): Promi
 
   const existingMount = await findExistingNasMount(host, share);
   if (existingMount) {
-    return { path: existingMount, didMount: false };
+    if (isMountWritable(existingMount)) {
+      return { path: existingMount, didMount: false };
+    }
+    // Finder /Volumes 等「可見但不可寫」掛載：改自行掛到專用掛載點，避免 mkdir EACCES 誤判失敗
+    console.warn(
+      `[mountNas] 既有掛載點不可寫，改自行掛載: ${existingMount} -> ${mountPoint}`
+    );
   }
 
   if (fs.existsSync(mountPoint)) {
@@ -177,7 +202,7 @@ export async function mountNas(creds: NasCredentials, mountPoint: string): Promi
         const msg = stderr.toLowerCase();
         if (msg.includes('file exists')) {
           const existing = await findExistingNasMount(host, share);
-          if (existing) {
+          if (existing && isMountWritable(existing)) {
             resolve({ path: existing, didMount: false });
             return;
           }

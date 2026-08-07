@@ -1,7 +1,8 @@
 /**
- * 備份服務：遠端複製 + SFTP 下載 + NAS 寫入
- * 1. SSH 在遠端複製至 staging（需 root 讀取的路徑）
- * 2. 優先掛載 NAS，SFTP 直接寫入掛載點；若掛載失敗則 fallback 至 temp + smbclient 上傳
+ * 備份服務：遠端複製 + 打包分卷 + SFTP 本機暫存 + NAS 寫入
+ * 1. SSH 遠端 cp / chown
+ * 2. 全部來源先遠端 tar（>30MB 則 split），產物留在 FineReport
+ * 3. 逐檔：SFTP→容器本機暫存（核對大小／重試）→ 掛載 copy 或 smbclient put（核對／重試）
  */
 import path from 'path';
 import fs from 'fs';
@@ -10,14 +11,16 @@ import { spawn } from 'child_process';
 import SftpClient from 'ssh2-sftp-client';
 import { execWithSudo } from './sshService.js';
 import { fileURLToPath } from 'url';
-import { mountNas, unmountNas, createNasDirectory, resolveSmbclientBin } from './nasService.js';
+import { mountNas, unmountNas, createNasDirectory, resolveSmbclientBin, listNasDirectory } from './nasService.js';
 import { NAS_CHUNK_BYTES, shouldChunkArchive, partFilePrefix, formatRestoreHint, } from '../lib/nasChunk.js';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SMB_CONF_PATH = path.join(__dirname, '..', '..', 'smb.conf');
-/** 單一檔／分卷傳輸逾時 */
+/** 單一檔／分卷 SFTP 或 NAS 寫入逾時 */
 const SOURCE_PART_TIMEOUT_MS = 5 * 60 * 1000;
-/** 單一來源（含多分卷）總逾時 */
+/** 單一來源下載＋上傳總逾時 */
 const SOURCE_TOTAL_TIMEOUT_MS = 45 * 60 * 1000;
+/** 單卷傳輸失敗時的最大嘗試次數（含首次） */
+const NAS_TRANSFER_MAX_ATTEMPTS = 3;
 async function ensureNasPath(creds, fullPath) {
     const parts = fullPath.replace(/\\/g, '/').split('/').filter(Boolean);
     let parent = '.';
@@ -116,6 +119,84 @@ async function uploadFileViaSmbclient(creds, nasTargetDir, localFilePath, onLog)
     await ensureNasPath(creds, nasTargetDir);
     await smbclientPutFile(creds, localFilePath, nasTargetDir, path.basename(localFilePath), onLog);
 }
+/** 刪除 NAS 上單一檔案（smbclient del；不存在則忽略） */
+async function smbclientDelFile(creds, nasTargetDir, remoteFileName, onLog) {
+    const host = creds.host.replace(/^smb:\/\//, '').trim();
+    const address = `//${host}/${creds.share}`;
+    const args = ['-s', SMB_CONF_PATH, address, '-U', `${creds.username}%${creds.password}`];
+    if (creds.domain && creds.domain !== 'WORKGROUP') {
+        args.splice(3, 0, '-W', creds.domain);
+    }
+    const cdEsc = nasTargetDir.replace(/"/g, '\\"');
+    const nameEsc = remoteFileName.replace(/"/g, '\\"');
+    const delCmd = `cd "${cdEsc}"; del "${nameEsc}"`;
+    const proc = spawn(resolveSmbclientBin(), [...args, '-c', delCmd], { stdio: ['ignore', 'pipe', 'pipe'] });
+    await new Promise((resolve) => {
+        let stdout = '';
+        let stderr = '';
+        proc.stdout?.on('data', (d) => { stdout += d.toString(); });
+        proc.stderr?.on('data', (d) => { stderr += d.toString(); });
+        proc.on('close', (code) => {
+            const combined = `${stdout}\n${stderr}`.toLowerCase();
+            if (code === 0 ||
+                combined.includes('nt_status_object_name_not_found') ||
+                combined.includes('no such file')) {
+                resolve();
+                return;
+            }
+            onLog?.(`SMB 刪除略過 (${remoteFileName})`, `del ${remoteFileName} @ ${nasTargetDir} (exit=${code})`, `${stdout}\n${stderr}`.trim());
+            resolve(); // 清舊檔失敗不阻断備份
+        });
+        proc.on('error', () => resolve());
+    });
+}
+/**
+ * 上傳前清除目的路徑上的舊 .tgz／分卷，避免與前次殘留混淆。
+ */
+async function clearDestinationArtifacts(nas, nasTargetDir, baseTgzName, chunked, nasAbsDir, useSmbclient, onLog) {
+    const shouldRemove = (name) => {
+        if (chunked) {
+            return name === baseTgzName || name.startsWith(`${baseTgzName}.part`);
+        }
+        return name === baseTgzName || name.startsWith(`${baseTgzName}.part`);
+    };
+    onLog?.('清除 NAS 舊產物', `${nasTargetDir}（${baseTgzName}${chunked ? ' / 分卷' : ''}）`);
+    if (!useSmbclient && nasAbsDir) {
+        ensureWritableDir(nasAbsDir);
+        try {
+            const entries = fs.readdirSync(nasAbsDir, { withFileTypes: true });
+            for (const ent of entries) {
+                if (!ent.isFile() || !shouldRemove(ent.name))
+                    continue;
+                const p = path.join(nasAbsDir, ent.name);
+                try {
+                    fs.rmSync(p, { force: true });
+                    onLog?.('已刪除舊檔 (掛載點)', p);
+                }
+                catch (e) {
+                    onLog?.('刪除舊檔失敗 (掛載點)', p, e.message);
+                }
+            }
+        }
+        catch (e) {
+            onLog?.('列出掛載目錄失敗（略過清除）', nasAbsDir, e.message);
+        }
+        return;
+    }
+    try {
+        await ensureNasPath(nas, nasTargetDir);
+        const entries = await listNasDirectory(nas, nasTargetDir);
+        for (const ent of entries) {
+            if (ent.isDir || !shouldRemove(ent.name))
+                continue;
+            await smbclientDelFile(nas, nasTargetDir, ent.name, onLog);
+            onLog?.('已刪除舊檔 (smbclient)', `${nasTargetDir}/${ent.name}`);
+        }
+    }
+    catch (e) {
+        onLog?.('清除 NAS 舊產物略過', nasTargetDir, e.message);
+    }
+}
 /**
  * 遞迴收集目錄下所有檔案（相對路徑）
  */
@@ -173,18 +254,32 @@ function assertLocalSize(localPath, expectedSize, label) {
         throw new Error(`${label} 大小不符：期望 ${expectedSize}，實際 ${size}（${localPath}）`);
     }
 }
+async function withAttempts(maxAttempts, label, onLog, fn) {
+    let lastErr = null;
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        try {
+            await fn(attempt);
+            return;
+        }
+        catch (e) {
+            lastErr = e;
+            onLog?.(`傳輸重試 ${label}`, `第 ${attempt}/${maxAttempts} 次失敗`, lastErr.message);
+            if (attempt < maxAttempts) {
+                await new Promise((r) => setTimeout(r, 1000 * attempt));
+            }
+        }
+    }
+    throw lastErr ?? new Error(`${label} 傳輸失敗`);
+}
 /**
- * 遠端打包為 .tgz；超過 NAS_CHUNK_BYTES 則遠端 split 後逐卷下載。
- * 目的端保留壓縮檔／分卷不解壓。
+ * 階段一：遠端 tar（必要時 split），產物留在 FineReport 暫存，不下載。
  */
-async function transferSourceArchive(sftp, creds, sudoPassword, remoteSrc, localTgzPath, onLog, onProgress) {
+async function prepareRemoteArchive(creds, sudoPassword, remoteSrc, onLog, onProgress) {
     const lastSlash = remoteSrc.lastIndexOf('/');
     const remoteParentDir = remoteSrc.substring(0, lastSlash);
     const baseName = remoteSrc.substring(lastSlash + 1);
     const remoteTgz = `${remoteSrc}.tgz`;
     const baseTgzName = `${baseName}.tgz`;
-    const destDir = path.dirname(localTgzPath);
-    fs.mkdirSync(destDir, { recursive: true });
     onProgress?.(`遠端打包 ${baseName}`);
     const escParent = remoteParentDir.replace(/"/g, '\\"');
     const escBase = baseName.replace(/"/g, '\\"');
@@ -198,16 +293,10 @@ async function transferSourceArchive(sftp, creds, sudoPassword, remoteSrc, local
     const archiveSize = await remoteFileSizeBytes(creds, sudoPassword, remoteTgz);
     onLog?.(`遠端壓縮包大小 ${baseName}`, `${archiveSize} bytes（閾值 ${NAS_CHUNK_BYTES}）`);
     if (!shouldChunkArchive(archiveSize)) {
-        onProgress?.(`下載壓縮包 ${baseTgzName}`);
-        onLog?.(`SFTP 下載 ${baseTgzName}`, `fastGet ${remoteTgz} -> ${localTgzPath}`);
-        await withTimeout(sftpFastGet(sftp, remoteTgz, localTgzPath), SOURCE_PART_TIMEOUT_MS, `SFTP 下載 ${baseTgzName}`);
-        await execWithSudo(creds, sudoPassword, `rm -f "${escTgz}"`, true);
-        assertLocalSize(localTgzPath, archiveSize, `驗證 ${baseTgzName}`);
-        onLog?.(`驗證 ${baseName}`, `本機壓縮包大小 ${archiveSize} bytes`);
         return {
             chunked: false,
             baseTgzName,
-            files: [{ fileName: baseTgzName, localPath: localTgzPath, size: archiveSize }],
+            artifacts: [{ remotePath: remoteTgz, fileName: baseTgzName, size: archiveSize }],
         };
     }
     const splitPrefix = `${remoteTgz}.part`;
@@ -230,22 +319,95 @@ async function transferSourceArchive(sftp, creds, sudoPassword, remoteSrc, local
         throw new Error(`遠端分卷後找不到 part 檔 (${baseName})，prefix=${partFilePrefix(baseTgzName)}`);
     }
     onLog?.(`遠端分卷清單 ${baseName}`, `${remoteParts.length} 卷`, remoteParts.join('\n'));
-    const files = [];
-    for (let i = 0; i < remoteParts.length; i++) {
-        const remotePart = remoteParts[i];
+    const artifacts = [];
+    for (const remotePart of remoteParts) {
         const fileName = path.posix.basename(remotePart);
-        const localPart = path.join(destDir, fileName);
-        const partSize = await remoteFileSizeBytes(creds, sudoPassword, remotePart);
-        onProgress?.(`分卷下載 ${i + 1}/${remoteParts.length}：${fileName}`);
-        onLog?.(`SFTP 下載 ${fileName}`, `fastGet ${remotePart} -> ${localPart}（${partSize} bytes）`);
-        await withTimeout(sftpFastGet(sftp, remotePart, localPart), SOURCE_PART_TIMEOUT_MS, `SFTP 下載 ${fileName}`);
-        const escPart = remotePart.replace(/"/g, '\\"');
-        await execWithSudo(creds, sudoPassword, `rm -f "${escPart}"`, true);
-        assertLocalSize(localPart, partSize, `驗證 ${fileName}`);
-        onLog?.(`驗證 ${fileName}`, `本機分卷大小 ${partSize} bytes`);
-        files.push({ fileName, localPath: localPart, size: partSize });
+        const size = await remoteFileSizeBytes(creds, sudoPassword, remotePart);
+        artifacts.push({ remotePath: remotePart, fileName, size });
     }
-    return { chunked: true, baseTgzName, files };
+    return { chunked: true, baseTgzName, artifacts };
+}
+/**
+ * SFTP 下載至容器本機暫存並核對大小（含重試）
+ */
+async function downloadArtifactToLocal(sftp, creds, sudoPassword, artifact, localPath, onLog, onProgress) {
+    fs.mkdirSync(path.dirname(localPath), { recursive: true });
+    await withAttempts(NAS_TRANSFER_MAX_ATTEMPTS, `SFTP ${artifact.fileName}`, onLog, async (attempt) => {
+        onProgress?.(attempt > 1
+            ? `SFTP 重試 ${attempt}/${NAS_TRANSFER_MAX_ATTEMPTS}：${artifact.fileName}`
+            : `SFTP 下載 ${artifact.fileName}`);
+        try {
+            fs.rmSync(localPath, { force: true });
+        }
+        catch {
+            /* ignore */
+        }
+        onLog?.(`SFTP 下載 ${artifact.fileName}`, `fastGet ${artifact.remotePath} -> ${localPath}（${artifact.size} bytes，嘗試 ${attempt}）`);
+        await withTimeout(sftpFastGet(sftp, artifact.remotePath, localPath), SOURCE_PART_TIMEOUT_MS, `SFTP 下載 ${artifact.fileName}`);
+        assertLocalSize(localPath, artifact.size, `本機暫存 ${artifact.fileName}`);
+    });
+    const esc = artifact.remotePath.replace(/"/g, '\\"');
+    await execWithSudo(creds, sudoPassword, `rm -f "${esc}"`, true);
+    onLog?.(`驗證本機 ${artifact.fileName}`, `${artifact.size} bytes`);
+}
+function isDir(p) {
+    try {
+        return fs.existsSync(p) && fs.statSync(p).isDirectory();
+    }
+    catch {
+        return false;
+    }
+}
+/**
+ * 建立目錄；CIFS／Finder 掛載常對「已存在」回 EACCES，此時若目錄已存在則視為成功。
+ */
+function ensureWritableDir(dirPath) {
+    if (isDir(dirPath))
+        return;
+    try {
+        fs.mkdirSync(dirPath, { recursive: true });
+    }
+    catch (e) {
+        const err = e;
+        if (isDir(dirPath))
+            return;
+        if (err.code === 'EEXIST' && isDir(dirPath))
+            return;
+        throw e;
+    }
+    if (!isDir(dirPath)) {
+        throw new Error(`無法建立目錄：${dirPath}`);
+    }
+}
+/**
+ * 自本機暫存寫入 NAS（掛載 copy 或 smbclient put），含重試與目的大小核對
+ */
+async function deliverLocalToNas(localPath, fileName, expectedSize, nasAbsFilePath, nas, nasTargetDir, useSmbclient, onLog, onProgress) {
+    // 掛載寫入前先以 smbclient 建立遠端目錄（Finder /Volumes mkdir 常不穩）
+    await ensureNasPath(nas, nasTargetDir);
+    await withAttempts(NAS_TRANSFER_MAX_ATTEMPTS, `NAS ${fileName}`, onLog, async (attempt) => {
+        onProgress?.(attempt > 1
+            ? `NAS 重試 ${attempt}/${NAS_TRANSFER_MAX_ATTEMPTS}：${fileName}`
+            : `寫入 NAS ${fileName}`);
+        if (useSmbclient) {
+            onLog?.(`SMB 上傳 ${fileName}`, `smbclient put ${fileName} -> ${nasTargetDir}（${expectedSize} bytes，嘗試 ${attempt}）`);
+            await uploadFileViaSmbclient(nas, nasTargetDir, localPath, onLog);
+        }
+        else {
+            if (!nasAbsFilePath)
+                throw new Error('缺少 NAS 掛載目的路徑');
+            ensureWritableDir(path.dirname(nasAbsFilePath));
+            try {
+                fs.rmSync(nasAbsFilePath, { force: true });
+            }
+            catch {
+                /* ignore */
+            }
+            onLog?.(`複製至 NAS 掛載點 ${fileName}`, `${localPath} -> ${nasAbsFilePath}（嘗試 ${attempt}）`);
+            fs.copyFileSync(localPath, nasAbsFilePath);
+            assertLocalSize(nasAbsFilePath, expectedSize, `NAS 寫入核對 ${fileName}`);
+        }
+    });
 }
 /**
  * 執行完整備份流程
@@ -255,14 +417,36 @@ export async function runBackup(options) {
     const sourceResults = sources.map((src) => ({
         id: src.id,
         label: src.label || src.id,
-        success: false,
+        status: 'pending',
+        uploadedFiles: [],
+        uploadedCount: 0,
     }));
+    const timeline = [];
+    const pushTimeline = (message) => {
+        timeline.push({ time: formatTaipei(new Date()), message });
+    };
     let backupDestPath = '';
     let overallError = null;
     const log = (label, command, output) => {
         onLog?.({ label, command, output });
     };
+    const markRemainingSkipped = (fromExclusiveId, reason) => {
+        let skip = fromExclusiveId === null;
+        for (const r of sourceResults) {
+            if (!skip) {
+                if (r.id === fromExclusiveId)
+                    skip = true;
+                continue;
+            }
+            if (r.status === 'pending' || r.status === 'packed') {
+                r.status = 'skipped';
+                r.error = reason;
+                r.completedAt = formatTaipei(new Date());
+            }
+        }
+    };
     const startTime = new Date();
+    pushTimeline('備份作業開始');
     log('刪除設定', `deleteOldBackup=${deleteOldBackup}, retentionMonths=${retentionMonths}`);
     const backupMonth = stagingPath.split('/').filter(Boolean).pop() ?? '';
     const reportFileName = `${formatTaipeiDate(new Date())}_${backupMonth}_FineReport備份報告.md`;
@@ -284,7 +468,7 @@ export async function runBackup(options) {
                 log('掛載 NAS', `mount 成功 -> ${actualMountPath}`);
             }
             else {
-                log('掛載 NAS', `使用既有掛載點 -> ${actualMountPath}`);
+                log('掛載 NAS', `使用既有可寫掛載點 -> ${actualMountPath}`);
             }
         }
         catch (mountErr) {
@@ -349,7 +533,8 @@ export async function runBackup(options) {
         if (nasMounted) {
             fs.mkdirSync(backupDestPath, { recursive: true });
         }
-        onProgress(35, useSmbclientFallback ? 'SFTP 下載' : 'SFTP 下載至 NAS');
+        const transferRoot = path.join(tempRoot, 'transfer');
+        fs.mkdirSync(transferRoot, { recursive: true });
         const sftp = new SftpClient();
         await sftp.connect({
             host: ssh.host,
@@ -357,58 +542,142 @@ export async function runBackup(options) {
             username: ssh.username,
             password: ssh.password,
         });
-        completed = 0;
-        for (const src of sources) {
+        // —— 階段一：全部來源遠端打包／分卷（產物留在 FineReport）——
+        onProgress(35, '遠端打包與分卷');
+        pushTimeline('開始遠端打包與分卷');
+        const prepared = [];
+        for (let si = 0; si < sources.length; si++) {
+            const src = sources[si];
             const label = src.label || src.id;
             const destPath = resolveDestPath(src);
             const remoteSrc = `${remoteStaging}/${destPath}`.replace(/\/+/g, '/').replace(/\/$/, '');
-            const localPath = path.join(backupDestPath, destPath);
-            onProgress(40 + Math.floor((completed / total) * 45), `打包下載 ${label}`);
-            const localPathAbs = path.resolve(localPath);
-            fs.mkdirSync(path.dirname(localPathAbs), { recursive: true });
-            const localTgzPath = `${localPathAbs}.tgz`;
-            const nasTargetDir = `${backupDestPathRel}/${path.dirname(destPath)}`.replace(/\/\.$/, '');
-            const destDirRel = path.posix.dirname(destPath);
-            const toDestRel = (fileName) => !destDirRel || destDirRel === '.' ? fileName : `${destDirRel}/${fileName}`;
-            let transfer;
+            onProgress(35 + Math.floor((si / total) * 15), `遠端打包 ${label}（${si + 1}/${total}）`);
             try {
-                transfer = await withTimeout(transferSourceArchive(sftp, ssh, sudoPassword, remoteSrc, localTgzPath, log, (msg) => onProgress(40 + Math.floor((completed / total) * 45), msg)), SOURCE_TOTAL_TIMEOUT_MS, `打包傳輸 ${label}`);
+                const pack = await withTimeout(prepareRemoteArchive(ssh, sudoPassword, remoteSrc, log, (msg) => onProgress(35 + Math.floor((si / total) * 15), msg)), SOURCE_TOTAL_TIMEOUT_MS, `遠端打包 ${label}`);
+                prepared.push({
+                    id: src.id,
+                    label,
+                    destPath,
+                    chunked: pack.chunked,
+                    baseTgzName: pack.baseTgzName,
+                    artifacts: pack.artifacts,
+                });
+                const planned = plannedDestRelativePaths(destPath, pack.chunked, pack.artifacts);
+                const resultIdx = sourceResults.findIndex((r) => r.id === src.id);
+                if (resultIdx !== -1) {
+                    sourceResults[resultIdx].status = 'packed';
+                    sourceResults[resultIdx].chunked = pack.chunked;
+                    sourceResults[resultIdx].partCount = pack.artifacts.length;
+                    sourceResults[resultIdx].plannedFiles = planned;
+                    sourceResults[resultIdx].packedAt = formatTaipei(new Date());
+                }
+                pushTimeline(`打包完成：${label}（${pack.chunked ? `分卷 ${pack.artifacts.length} 檔` : '單檔'}）`);
+                log(`打包完成 ${label}`, pack.chunked
+                    ? `已分卷 ${pack.artifacts.length} 個檔`
+                    : `未分卷 1 個檔（${pack.artifacts[0]?.size ?? 0} bytes）`);
             }
             catch (e) {
+                const resultIdx = sourceResults.findIndex((r) => r.id === src.id);
+                if (resultIdx !== -1) {
+                    sourceResults[resultIdx].status = 'failed';
+                    sourceResults[resultIdx].error = e.message;
+                    sourceResults[resultIdx].completedAt = formatTaipei(new Date());
+                }
+                markRemainingSkipped(src.id, '前一來源打包失敗，未執行');
+                pushTimeline(`打包失敗：${label} — ${e.message}`);
                 await sftp.end();
-                throw new Error(`打包下載失敗 (${label}): ${e.message}`);
+                throw new Error(`遠端打包失敗 (${label}): ${e.message}`);
             }
-            if (useSmbclientFallback) {
-                for (let i = 0; i < transfer.files.length; i++) {
-                    const f = transfer.files[i];
-                    const progressLabel = transfer.files.length > 1
-                        ? `分卷上傳 ${i + 1}/${transfer.files.length}：${f.fileName}`
-                        : `SMB 上傳 ${f.fileName}`;
-                    onProgress(40 + Math.floor(((completed + (i + 1) / transfer.files.length) / total) * 45), progressLabel);
-                    log(`SMB 上傳 ${label}`, `smbclient put ${f.fileName} -> ${nasTargetDir} (${f.size} bytes)`);
-                    await uploadFileViaSmbclient(nas, nasTargetDir, f.localPath, log);
-                    try {
-                        fs.rmSync(f.localPath);
-                    }
-                    catch {
-                        /* ignore */
-                    }
-                }
-            }
-            else {
-                for (const f of transfer.files) {
-                    assertLocalSize(f.localPath, f.size, `NAS 寫入核對 ${f.fileName}`);
-                    log(`已寫入 NAS ${label}`, `${f.fileName} (${f.size} bytes) -> ${nasTargetDir}`);
-                }
-            }
-            const resultIdx = sourceResults.findIndex((r) => r.id === src.id);
-            if (resultIdx !== -1) {
-                sourceResults[resultIdx].success = true;
-                sourceResults[resultIdx].chunked = transfer.chunked;
-                sourceResults[resultIdx].destFiles = transfer.files.map((f) => toDestRel(f.fileName));
-            }
-            completed++;
         }
+        pushTimeline('全部來源打包完成，開始上傳 NAS');
+        // —— 階段二：逐來源、逐檔：SFTP→本機暫存→寫入 NAS（含重試）——
+        onProgress(50, useSmbclientFallback ? '下載並 SMB 上傳' : '下載並寫入 NAS');
+        for (let si = 0; si < prepared.length; si++) {
+            const prep = prepared[si];
+            const destDirRel = path.posix.dirname(prep.destPath);
+            const nasTargetDir = prep.chunked
+                ? `${backupDestPathRel}/${prep.destPath}`.replace(/\/+/g, '/')
+                : `${backupDestPathRel}/${destDirRel}`.replace(/\/\.$/, '');
+            const resultIdx = sourceResults.findIndex((r) => r.id === prep.id);
+            const planned = plannedDestRelativePaths(prep.destPath, prep.chunked, prep.artifacts);
+            if (resultIdx !== -1) {
+                sourceResults[resultIdx].transferStartedAt = formatTaipei(new Date());
+                sourceResults[resultIdx].plannedFiles = planned;
+                sourceResults[resultIdx].uploadedFiles = [];
+                sourceResults[resultIdx].uploadedCount = 0;
+            }
+            const nasAbsDir = nasMounted
+                ? path.join(backupDestPath, prep.chunked ? prep.destPath : destDirRel === '.' ? '' : destDirRel)
+                : null;
+            try {
+                await withTimeout((async () => {
+                    await clearDestinationArtifacts(nas, nasTargetDir, prep.baseTgzName, prep.chunked, nasAbsDir, useSmbclientFallback || !nasMounted, log);
+                    pushTimeline(`清除舊產物後開始上傳：${prep.label}`);
+                    for (let fi = 0; fi < prep.artifacts.length; fi++) {
+                        const art = prep.artifacts[fi];
+                        const relDest = prep.chunked
+                            ? `${prep.destPath}/${art.fileName}`
+                            : destDirRel === '.'
+                                ? art.fileName
+                                : `${destDirRel}/${art.fileName}`;
+                        const localTemp = path.join(transferRoot, prep.chunked ? prep.destPath : destDirRel === '.' ? '' : destDirRel, art.fileName);
+                        const progressBase = 50 + Math.floor(((si + fi / Math.max(prep.artifacts.length, 1)) / prepared.length) * 37);
+                        try {
+                            await downloadArtifactToLocal(sftp, ssh, sudoPassword, art, localTemp, log, (msg) => onProgress(progressBase, `${prep.label}: ${msg}`));
+                            const nasAbs = nasMounted
+                                ? path.join(backupDestPath, prep.chunked ? prep.destPath : destDirRel === '.' ? '' : destDirRel, art.fileName)
+                                : null;
+                            await deliverLocalToNas(localTemp, art.fileName, art.size, nasAbs, nas, nasTargetDir, useSmbclientFallback, log, (msg) => onProgress(progressBase, `${prep.label}: ${msg}`));
+                            try {
+                                fs.rmSync(localTemp, { force: true });
+                            }
+                            catch {
+                                /* ignore */
+                            }
+                            if (resultIdx !== -1) {
+                                sourceResults[resultIdx].uploadedFiles = [
+                                    ...(sourceResults[resultIdx].uploadedFiles ?? []),
+                                    relDest,
+                                ];
+                                sourceResults[resultIdx].uploadedCount =
+                                    (sourceResults[resultIdx].uploadedCount ?? 0) + 1;
+                            }
+                            pushTimeline(`上傳成功：${prep.label} ${fi + 1}/${prep.artifacts.length} ${art.fileName}`);
+                            log(`已完成 ${prep.label}`, `${fi + 1}/${prep.artifacts.length} ${art.fileName}（${art.size} bytes）-> ${nasTargetDir}`);
+                        }
+                        catch (fileErr) {
+                            if (resultIdx !== -1) {
+                                sourceResults[resultIdx].status = 'failed';
+                                sourceResults[resultIdx].failedFile = relDest;
+                                sourceResults[resultIdx].error = fileErr.message;
+                                sourceResults[resultIdx].completedAt = formatTaipei(new Date());
+                            }
+                            pushTimeline(`上傳失敗：${prep.label} @ ${art.fileName} — ${fileErr.message}`);
+                            throw fileErr;
+                        }
+                    }
+                })(), SOURCE_TOTAL_TIMEOUT_MS, `傳輸 ${prep.label}`);
+            }
+            catch (e) {
+                if (resultIdx !== -1 && sourceResults[resultIdx].status !== 'failed') {
+                    sourceResults[resultIdx].status = 'failed';
+                    sourceResults[resultIdx].error = e.message;
+                    sourceResults[resultIdx].completedAt = formatTaipei(new Date());
+                }
+                markRemainingSkipped(prep.id, '前一來源傳輸失敗，未執行');
+                pushTimeline(`中止後續來源：因 ${prep.label} 失敗`);
+                await sftp.end();
+                throw new Error(`傳輸失敗 (${prep.label}): ${e.message}`);
+            }
+            if (resultIdx !== -1) {
+                sourceResults[resultIdx].status = 'success';
+                sourceResults[resultIdx].chunked = prep.chunked;
+                sourceResults[resultIdx].partCount = prep.artifacts.length;
+                sourceResults[resultIdx].completedAt = formatTaipei(new Date());
+            }
+            pushTimeline(`來源完成：${prep.label}`);
+        }
+        pushTimeline('全部來源上傳完成');
         const deleteActions = [];
         if (deleteOldBackup === true && retentionMonths > 0) {
             const stagingParts = remoteStaging.replace(/\/$/, '').split('/').filter(Boolean);
@@ -441,7 +710,8 @@ export async function runBackup(options) {
         }
         await sftp.end();
         onProgress(90, '產生報告');
-        const report = generateReport(backupId, backupMonth, backupDestPathRel, sources, startTime, deleteOldBackup, retentionMonths, deleteActions, sourceResults, null);
+        pushTimeline('產生備份報告');
+        const report = generateReport(backupId, backupMonth, backupDestPathRel, sources, startTime, deleteOldBackup, retentionMonths, deleteActions, sourceResults, timeline, null);
         if (nasMounted) {
             fs.writeFileSync(path.join(backupDestPath, reportFileName), report, 'utf8');
         }
@@ -453,11 +723,14 @@ export async function runBackup(options) {
             await uploadDirViaSmbclient(nas, backupDestPathRel, reportDir, undefined, log);
         }
         options.onReport(report, false);
+        pushTimeline('備份完成');
         onProgress(100, '備份完成');
     }
     catch (e) {
         overallError = e;
-        const failReport = generateReport(backupId, backupMonth, backupDestPathRel, sources, startTime, deleteOldBackup, retentionMonths, [], sourceResults, overallError);
+        markRemainingSkipped(null, '作業失敗中止，未執行');
+        pushTimeline(`作業失敗：${overallError.message}`);
+        const failReport = generateReport(backupId, backupMonth, backupDestPathRel, sources, startTime, deleteOldBackup, retentionMonths, [], sourceResults, timeline, overallError);
         try {
             options.onReport(failReport, true);
         }
@@ -503,13 +776,11 @@ export async function runBackup(options) {
         catch {
             // ignore
         }
-        if (useSmbclientFallback) {
-            try {
-                fs.rmSync(tempRoot, { recursive: true, force: true });
-            }
-            catch {
-                // ignore
-            }
+        try {
+            fs.rmSync(tempRoot, { recursive: true, force: true });
+        }
+        catch {
+            // ignore
         }
         if (overallError)
             throw overallError;
@@ -552,37 +823,114 @@ function resolveDestPath(src) {
     }
     return base;
 }
-function generateReport(backupId, backupMonth, destPath, sources, startTime, deleteOldBackup, retentionMonths, deleteActions, sourceResults, overallError) {
-    const dirsMap = new Map();
-    for (const src of sources) {
-        const rel = resolveDestPath(src);
-        const top = rel.split('/')[0];
-        if (!top)
-            continue;
-        const result = sourceResults.find((r) => r.id === src.id);
-        const names = result?.destFiles && result.destFiles.length > 0
-            ? result.destFiles.map((f) => path.posix.basename(f))
-            : [`${path.basename(rel)}.tgz`];
-        if (!dirsMap.has(top))
-            dirsMap.set(top, []);
-        dirsMap.get(top).push(...names);
+function plannedDestRelativePaths(destPath, chunked, artifacts) {
+    const dirRel = path.posix.dirname(destPath);
+    return artifacts.map((a) => chunked
+        ? `${destPath}/${a.fileName}`
+        : dirRel === '.'
+            ? a.fileName
+            : `${dirRel}/${a.fileName}`);
+}
+function statusLabel(status) {
+    switch (status) {
+        case 'success':
+            return '成功';
+        case 'failed':
+            return '失敗';
+        case 'skipped':
+            return '未執行';
+        case 'packed':
+            return '未執行';
+        case 'pending':
+        default:
+            return '未執行';
     }
-    const topLevelDirs = Array.from(dirsMap.keys()).sort();
+}
+function generateReport(backupId, backupMonth, destPath, sources, startTime, deleteOldBackup, retentionMonths, deleteActions, sourceResults, timeline, overallError) {
     const endTime = new Date();
-    const completedCount = sourceResults.filter((r) => r.success).length;
-    const totalCount = sourceResults.length;
     const isFailure = overallError !== null;
     const anyChunked = sourceResults.some((r) => r.chunked);
+    const successCount = sourceResults.filter((r) => r.status === 'success').length;
+    const failedCount = sourceResults.filter((r) => r.status === 'failed').length;
+    const skippedCount = sourceResults.filter((r) => r.status === 'skipped' || r.status === 'pending' || r.status === 'packed').length;
+    const totalCount = sourceResults.length;
+    // 目錄結構：僅列實際成功上傳的檔案；失敗列註記 + 失敗檔
+    const dirsMap = new Map();
+    for (const r of sourceResults) {
+        const uploaded = r.uploadedFiles ?? [];
+        for (const f of uploaded) {
+            const top = f.split('/')[0];
+            if (!top)
+                continue;
+            const rest = f.startsWith(`${top}/`) ? f.slice(top.length + 1) : path.posix.basename(f);
+            if (!dirsMap.has(top))
+                dirsMap.set(top, []);
+            dirsMap.get(top).push(rest);
+        }
+        if (r.status === 'failed' && r.failedFile) {
+            const f = r.failedFile;
+            const top = f.split('/')[0];
+            if (top) {
+                const rest = f.startsWith(`${top}/`) ? f.slice(top.length + 1) : path.posix.basename(f);
+                if (!dirsMap.has(top))
+                    dirsMap.set(top, []);
+                dirsMap.get(top).push(`${rest}（寫入失敗）`);
+            }
+        }
+    }
+    const topLevelDirs = Array.from(dirsMap.keys()).sort();
     const completionSection = `## 完成度
 
-已完成 ${completedCount} / 共 ${totalCount} 個來源
+成功 ${successCount}／失敗 ${failedCount}／未執行 ${skippedCount}（共 ${totalCount} 個來源）
 
-| 來源 | 狀態 |
-|------|------|
+| 來源 | 應傳數 | 已成功數 | 狀態 | 失敗檔案／原因 |
+|------|--------|----------|------|----------------|
 ${sourceResults
-        .map((r) => `| ${r.label} | ${r.success ? '✅ 成功' : `❌ 未完成${r.error ? `（${r.error}）` : ''}`} |`)
+        .map((r) => {
+        const expected = typeof r.partCount === 'number'
+            ? String(r.partCount)
+            : r.plannedFiles && r.plannedFiles.length > 0
+                ? String(r.plannedFiles.length)
+                : '—';
+        const done = String(r.uploadedCount ?? r.uploadedFiles?.length ?? 0);
+        const st = statusLabel(r.status);
+        let detail = '—';
+        if (r.status === 'failed') {
+            const parts = [];
+            if (r.failedFile)
+                parts.push(r.failedFile);
+            if (r.error)
+                parts.push(r.error);
+            detail = parts.join(' — ') || '未知錯誤';
+        }
+        else if (r.status === 'skipped' && r.error) {
+            detail = r.error;
+        }
+        return `| ${r.label} | ${expected} | ${done} | ${st} | ${detail} |`;
+    })
         .join('\n')}
 `;
+    const timelineSection = `## 時間軸（Asia/Taipei）
+
+| 時間 | 事件 |
+|------|------|
+| ${formatTaipei(startTime)} | 開始作業 |
+${timeline.map((e) => `| ${e.time} | ${e.message} |`).join('\n')}
+| ${formatTaipei(endTime)} | ${isFailure ? '失敗結束' : '完成結束'} |
+`;
+    const treeBody = topLevelDirs.length === 0
+        ? '（尚無成功寫入 NAS 的檔案）'
+        : topLevelDirs
+            .map((d) => `├── ${d}/\n${dirsMap.get(d).map((f) => `│   ├── ${f}`).join('\n')}`)
+            .join('\n');
+    const plannedVsActual = sourceResults
+        .filter((r) => (r.plannedFiles?.length ?? 0) > 0 || (r.uploadedFiles?.length ?? 0) > 0)
+        .map((r) => {
+        const planned = (r.plannedFiles ?? []).join(', ') || '—';
+        const actual = (r.uploadedFiles ?? []).join(', ') || '（無）';
+        return `| ${r.label} | ${planned} | ${actual} |`;
+    })
+        .join('\n');
     const deleteSection = deleteActions.length > 0
         ? `## 遠端刪除動作（保留期 ${retentionMonths} 個月）
 
@@ -597,13 +945,14 @@ ${deleteActions.map((a) => `| ${a.label} | \`${a.command}\` |`).join('\n')}
     const restoreSection = anyChunked
         ? `## 分卷還原
 
-超過 30MB 的來源會拆成 \`.tgz.part000\` 起之連續分卷。還原範例：
+超過 30MB 的來源會拆成 \`.tgz.part000\` 起之連續分卷，並放在與來源目的路徑同名之子目錄（例如 \`webroot/jar/\`）。還原範例：
 
 \`\`\`bash
+cd webroot/jar
 ${formatRestoreHint('jar.tgz')}
 \`\`\`
 
-（將 \`jar.tgz\` 換成實際檔名前綴即可。）
+（將目錄與 \`jar.tgz\` 換成實際的目的路徑／檔名前綴即可。）
 `
         : '';
     const titleLine = isFailure
@@ -611,8 +960,11 @@ ${formatRestoreHint('jar.tgz')}
         : `# FineReport 備份報告\n`;
     const destFileCell = (s) => {
         const r = sourceResults.find((x) => x.id === s.id);
-        if (r?.destFiles && r.destFiles.length > 0) {
-            return r.destFiles.join('<br>');
+        if (r?.uploadedFiles && r.uploadedFiles.length > 0) {
+            return r.uploadedFiles.join('<br>');
+        }
+        if (r?.plannedFiles && r.plannedFiles.length > 0) {
+            return `${r.plannedFiles.join('<br>')}（計畫，未全數上傳）`;
         }
         return `${resolveDestPath(s)}.tgz`;
     };
@@ -629,21 +981,26 @@ ${formatRestoreHint('jar.tgz')}
 | ${isFailure ? '失敗時間' : '完成時間'} | ${formatTaipei(endTime)} |
 
 ${completionSection}
-## 備份目錄結構
+${timelineSection}
+## 備份目錄結構（實際寫入 NAS）
 
 \`\`\`
 ${destPath}/
-${topLevelDirs
-        .map((d) => `├── ${d}/\n${dirsMap.get(d).map((f) => `│   ├── ${f}`).join('\n')}`)
-        .join('\n')}
+${treeBody}
 \`\`\`
 
-各 .tgz（或 .tgz.part* 分卷）為對應來源目錄的壓縮檔，系統不會自動解壓。單一分卷請 \`tar xzf\`；多分卷請先 \`cat\` 合併再解壓。
+### 計畫 vs 實際
+
+| 來源 | 計畫檔案 | 實際已上傳 |
+|------|----------|------------|
+${plannedVsActual || '| — | — | — |'}
+
+各 .tgz（或 .tgz.part* 分卷）為對應來源目錄的壓縮檔，系統不會自動解壓。單一分卷請 \`tar xzf\`；多分卷請先 \`cat\` 合併再解壓。上傳前會清除同路徑舊的 \`.tgz\`／\`.tgz.part*\`。
 
 ${restoreSection}## 備份來源
 
-| 項目 | 來源路徑 | 目的檔案 |
-|------|----------|----------|
+| 項目 | 來源路徑 | 目的檔案（實際／說明） |
+|------|----------|------------------------|
 ${sources.map((s) => `| ${s.label || s.id} | ${s.sourcePath} | ${destFileCell(s)} |`).join('\n')}
 
 ---

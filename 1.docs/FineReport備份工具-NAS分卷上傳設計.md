@@ -54,7 +54,7 @@
 |------|------|
 | **分卷閾值** | `NAS_CHUNK_BYTES = 30 * 1024 * 1024`（30 MiB） |
 | **整包** | 遠端 `tar czf` 產出之 `{來源}.tgz` |
-| **分卷** | `split` 產出之 `{來源}.tgz.part000`、`.part001`…（十進位、3 位寬） |
+| **分卷** | `split` 產出之 `{來源}.tgz.part000`、`.part001`…（十進位、3 位寬），存放於目的路徑子目錄 `{destPath}/`（例如 `webroot/plugins/plugins.tgz.part000`） |
 | **掛載路徑** | NAS CIFS 掛載成功，檔案寫入掛載點 |
 | **備援路徑** | 掛載失敗，本機 temp + `smbclient put` |
 
@@ -76,36 +76,32 @@
 ### 5.2 目標流程
 
 ```
-遠端 tar czf → 取得遠端檔案大小
-  ├─ ≤ 30MB：維持單一 {name}.tgz 傳輸（掛載直寫或 temp+smbclient）
-  └─ > 30MB：
-        遠端 split -b 30m -d -a 3 → {name}.tgz.part000…
-        刪除遠端整包 .tgz
-        逐分卷 SFTP 下載至目的（掛載點或 temp）
-        （備援）逐分卷 smbclient put
-        每卷驗證大小（見 5.4）
-        刪除遠端分卷暫存
+遠端 cp -R 全部來源 → chown
+  →【階段一】每個來源：tar czf →（>30MB 則 split）產物留在 FineReport
+  →【階段二】每個 .tgz／part：
+        SFTP → 容器本機暫存（核對 size，失敗重試最多 3 次）
+        → 掛載 copy 或 smbclient put 至 NAS（再核對／重試）
+        → 刪遠端暫存與本機暫存
 ```
 
-**為何在遠端 split（壓縮後立刻拆）**：
+分卷 NAS 路徑：`{destPath}/{name}.tgz.partNNN`（例如 `webroot/plugins/plugins.tgz.part000`）。  
+未分卷：`{dirname(destPath)}/{name}.tgz`。
 
-- 符合「壓縮時就拆」需求。
-- 避免先把整包 GB 檔經 CIFS `fastGet` 寫上 NAS 再拆（整包大檔寫入仍会踩雷）。
-- SFTP／SMB 每次只搬 ≤30MB。
+**為何改為兩階段**：打包與上傳分離，便於先統計拆檔數；SFTP 不直寫 CIFS，避免掛載寫入截斷（4MiB／16MiB／0 byte）。
 
 ### 5.3 命名與還原
 
 | 產物 | 範例 |
 |------|------|
 | 未超標 | `webroot/jar.tgz` |
-| 超標分卷 | `webroot/jar.tgz.part000`、`jar.tgz.part001`、… |
+| 超標分卷 | `webroot/jar/jar.tgz.part000`、`jar.tgz.part001`…（置於 `destPath` 子目錄） |
 
 還原（使用者手動）：
 
 ```bash
+cd webroot/jar
 cat jar.tgz.part* > jar.tgz
 tar xzf jar.tgz
-# 或：cat jar.tgz.part* | tar xzf -
 ```
 
 ### 5.4 驗證規則（成功條件）
@@ -162,9 +158,16 @@ tar xzf jar.tgz
 
 | 欄位／區塊 | 說明 | 必填 | 範例 |
 |------------|------|------|------|
-| 目的檔案 | 整包或分卷檔名列表 | 是 | `webroot/jar.tgz.part000` … |
-| 還原說明 | 分卷合併指令 | 條件（有分卷時） | `cat jar.tgz.part* > jar.tgz` |
+| 目的檔案 | 實際成功寫入的檔名（失敗報告另附計畫對照） | 是 | `webroot/jar/jar.tgz.part000` … |
+| 還原說明 | 分卷合併指令 | 條件（有分卷時） | `cd webroot/jar` + `cat …` |
+| 完成度．應傳數 | 該來源應傳檔數（未拆＝1） | 是 | `12` |
+| 完成度．已成功數 | 實際寫入 NAS 筆數 | 是 | `3` |
+| 完成度．狀態 | `成功`／`失敗`／`未執行` | 是 | `失敗` |
+| 完成度．失敗檔案／原因 | 失敗或未執行時的說明 | 條件 | `…part003 — Connection reset` |
+| 時間軸 | 打包／清舊／上傳／中止事件 | 是 | `上傳失敗：Java @ …` |
+| 計畫 vs 實際 | 計畫檔列表與實際上傳列表 | 是 | 計畫 12、實際 3 |
 | 分卷閾值（程式常數） | 非 UI | — | 30 MiB |
+| 上傳前清舊 | 寫入前刪同路徑舊 `.tgz`／`.tgz.part*` | — | 自動 |
 
 ---
 
