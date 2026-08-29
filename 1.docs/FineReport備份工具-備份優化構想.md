@@ -53,6 +53,7 @@
 | 3c | SFTP／整體逾時保護 | 解 C 情境 | ✅ P1 已完成 | `backupService.ts`、`backupExecutor.ts` |
 | 4 | 進度／日誌／報告持久化 | 解 B 情境（根治） | P2（後續里程碑） | 後端 + 儲存層 |
 | 5 | NAS >30MB 分卷上傳（掛載／smbclient 一律） | 降低大檔 SMB／CIFS 傳輸失敗 | ✅ 已實作 | `backupService.ts`、`lib/nasChunk.ts`；見 [NAS分卷上傳設計](./FineReport備份工具-NAS分卷上傳設計.md)、[PLAN](./FineReport備份工具-NAS分卷上傳-PLAN.md) |
+| 6 | 失敗續傳、傳完再結束、CIFS stream、報告不覆蓋 | 0 byte 可補傳；單檔失敗不中止後續 | ✅ 已實作 | 見 [失敗續傳與CIFS寫入設計](./FineReport備份工具-失敗續傳與CIFS寫入-設計.md)、[PLAN](./FineReport備份工具-失敗續傳與CIFS寫入-PLAN.md) |
 
 ## 5. 作業內容（技術設計重點）
 

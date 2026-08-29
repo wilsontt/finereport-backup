@@ -10,6 +10,7 @@ import { BackupProgress } from './components/BackupProgress';
 import { StepIndicator } from './components/StepIndicator';
 import { TopTitleNav } from './components/TopTitleNav';
 import { APP_VERSION } from './constants/appVersion';
+import { backupApi } from './api/backup';
 import type { BackupSource } from './types';
 
 export type Step = 'credentials' | 'human' | 'paths' | 'backup';
@@ -20,13 +21,31 @@ function App() {
   const [nasPath, setNasPath] = useState('');
   const [verifiedNasPath, setVerifiedNasPath] = useState('');
   const [backupId, setBackupId] = useState<string | null>(null);
+  const [resumeStagingPath, setResumeStagingPath] = useState('');
 
   useEffect(() => {
     const savedId = sessionStorage.getItem('finereport-backup-id');
     if (savedId) {
       setBackupId(savedId);
       setStep('backup');
+      return;
     }
+    void (async () => {
+      const res = await backupApi.getLastJob();
+      if (res.error || !res.data?.job || res.data.job.status !== 'failed') return;
+      const job = res.data.job;
+      setSources(
+        job.sources.map((s) => ({
+          id: s.id,
+          label: s.label,
+          sourcePath: s.sourcePath,
+          destPath: s.destPath,
+        }))
+      );
+      setNasPath(job.nasPath);
+      setResumeStagingPath(job.stagingPath);
+      setStep('backup');
+    })();
   }, []);
 
   const onCredentialsDone = (nasFullPath?: string) => {
@@ -70,6 +89,7 @@ function App() {
               onStart={onBackupStart}
               sources={sources}
               nasPath={nasPath}
+              initialStagingPath={resumeStagingPath || undefined}
             />
           )}
           <PortalFooter

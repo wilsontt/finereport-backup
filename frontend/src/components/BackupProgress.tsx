@@ -24,6 +24,7 @@ interface Props {
   onStart: (id: string) => void;
   sources: BackupSource[];
   nasPath: string;
+  initialStagingPath?: string;
 }
 
 export function BackupProgress({
@@ -31,6 +32,7 @@ export function BackupProgress({
   onStart,
   sources,
   nasPath,
+  initialStagingPath,
 }: Props) {
   const [loading, setLoading] = useState(false);
   const [stagingLoading, setStagingLoading] = useState(false);
@@ -50,10 +52,15 @@ export function BackupProgress({
   const startTimeRef = useRef<number | null>(null);
 
   useEffect(() => {
+    if (initialStagingPath) {
+      setStagingPath(initialStagingPath);
+      setStagingCreated(true);
+      return;
+    }
     backupApi.getStagingDefaultPath().then((res) => {
       if (!res.error && res.data?.path) setStagingPath(res.data.path);
     });
-  }, []);
+  }, [initialStagingPath]);
 
   const createStagingDir = async () => {
     if (!stagingPath.trim()) {
@@ -72,19 +79,23 @@ export function BackupProgress({
     if (res.data?.path) setStagingPath(res.data.path);
   };
 
-  const startBackup = async () => {
+  const startBackup = async (mode: 'full' | 'resume' = 'full') => {
     if (!stagingPath.trim()) {
       setError('請輸入或選擇暫存目錄路徑');
       return;
     }
     setError('');
     setLoading(true);
+    setDone(false);
+    setReport('');
+    setPercent(0);
     const res = await backupApi.startBackup({
       stagingPath: stagingPath.trim(),
       sources,
       nasPath,
       deleteOldBackup,
       retentionMonths: deleteOldBackup ? (retentionMonths || 6) : 0,
+      mode,
     });
     setLoading(false);
     if (res.error) {
@@ -210,10 +221,23 @@ export function BackupProgress({
             <button className="btn btn-secondary" style={{ flex: 1 }} onClick={createStagingDir} disabled={stagingLoading || stagingCreated || !stagingPath.trim()}>
               {stagingLoading ? '建立中...' : stagingCreated ? '暫存目錄已建立' : '建立暫存目錄'}
             </button>
-            <button className="btn btn-primary" style={{ flex: 1 }} onClick={startBackup} disabled={loading || !stagingCreated}>
+            <button className="btn btn-primary" style={{ flex: 1 }} onClick={() => { void startBackup('full'); }} disabled={loading || !stagingCreated}>
               {loading ? '啟動中...' : '開始備份'}
             </button>
           </div>
+          {initialStagingPath && stagingCreated && (
+            <div className="flex gap-4" style={{ marginTop: '0.75rem' }}>
+              <button
+                className="btn btn-primary"
+                style={{ flex: 1 }}
+                type="button"
+                disabled={loading}
+                onClick={() => { void startBackup('resume'); }}
+              >
+                從失敗處續傳
+              </button>
+            </div>
+          )}
           
           {error && <div className="alert-error" style={{ marginBottom: 0 }}>{error}</div>}
         </div>
@@ -363,6 +387,29 @@ export function BackupProgress({
         {isComplete && !showReport && report && (
           <p style={{ color: 'var(--color-text-muted)', fontSize: '0.875rem' }}>報告產生中...</p>
         )}
+        {isComplete && backupFailed && (
+          <div className="flex gap-4" style={{ marginTop: '1rem' }}>
+            <button
+              className="btn btn-primary"
+              style={{ flex: 1 }}
+              type="button"
+              disabled={loading}
+              onClick={() => { void startBackup('resume'); }}
+            >
+              {loading ? '啟動中...' : '從失敗處續傳'}
+            </button>
+            <button
+              className="btn btn-secondary"
+              style={{ flex: 1 }}
+              type="button"
+              disabled={loading}
+              onClick={() => { void startBackup('full'); }}
+            >
+              {loading ? '啟動中...' : '全部重來'}
+            </button>
+          </div>
+        )}
+        {error && backupId && <div className="alert-error" style={{ marginTop: '0.75rem', marginBottom: 0 }}>{error}</div>}
       </div>
     </div>
   );

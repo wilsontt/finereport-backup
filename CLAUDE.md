@@ -53,14 +53,15 @@ docker build -f Dockerfile.frontend -t finereport-backup-frontend .
 **備份執行流程**（`services/backupService.ts` + `services/backupExecutor.ts`）：
 1. 以 `mount_smbfs`（macOS）或 `mount -t cifs`（Linux）掛載 NAS；若掛載失敗，改用 `smbclient` 作為備援
 2. SSH 連至遠端 → 以 sudo 執行 `cp -R`，將檔案複製至遠端暫存路徑
-3. **階段一**：各來源遠端 `tar czf`；若 `.tgz` > 30MB 則 `split` 為 `.tgz.part000`…（產物先留遠端）。**階段二**：上傳前清除同路徑舊 `.tgz`／分卷；逐檔 SFTP→容器本機暫存（核對／最多 3 次重試）→ 掛載 `copyFile` 或 `smbclient put`（同分卷放 `destPath/` 子目錄）。報告含完成度（應傳／已成功／成功｜失敗｜未執行）、時間軸、實際寫入目錄（計畫 vs 實際）。
-4. 若使用 smbclient 備援：於階段二以逐檔 `put` 上傳（非 SFTP 直寫 CIFS）
-5. 對暫存目錄執行 `chown`、依設定刪除舊備份、產生 Markdown 備份報告（檔名：`yyyyMMdd_備份年月_FineReport備份報告.md`）
+3. **階段一**：各來源遠端 `tar czf`；若 `.tgz` > 30MB 則 `split`。打包失敗不中止後續來源。**階段二**：逐檔 SFTP→本機暫存→掛載 **stream 複製**（禁止 copyFile）或 smbclient put；0 byte 則該檔改 put。**SFTP 成功不刪遠端**；NAS 核對成功才刪。單一檔失敗不中止後續檔／來源。報告含完成度、時間軸、計畫 vs 實際。
+4. 若使用 smbclient 備援：於階段二以逐檔 `put` 上傳
+5. `chown`、依設定刪除舊備份、Markdown 報告檔名：`yyyyMMdd_HHmmss_備份月_FineReport備份報告.md`（失敗加 `_失敗`，不覆蓋舊檔）
 
-**可靠性機制**（v1.3 新增）：
-- 報告必產生：任何結束路徑（成功/失敗/逾時）均產生報告，失敗報告也嘗試寫入 NAS。
-- 前端可重連：`backupId` 保存於 `sessionStorage`，頁面重整後自動跳回備份進度畫面重連 SSE。
-- 整體逾時：2 小時 timeout 保護，逾時即產生失敗報告並結束。
+**可靠性機制：**
+- 報告必產生：任何結束路徑均產生報告，失敗報告也寫 NAS（獨立檔名）。
+- 前端可重連：`backupId` 保存於 `sessionStorage`。
+- 失敗後同一 Session 可「從失敗處續傳」或「全部重來」（`POST /start` `mode`）；`GET /last-job`。後端重啟須重驗。
+- 整體逾時：2 小時。
 
 **SSE 進度串流**：`GET /progress/:backupId` 透過 Server-Sent Events 推送 `event: progress` 與 `event: done`。備份 ID 為一組 UUID，在非同步工作啟動前即已建立。
 

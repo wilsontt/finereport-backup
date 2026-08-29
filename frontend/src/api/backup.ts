@@ -152,11 +152,27 @@ export const backupApi = {
     nasPath: string;
     deleteOldBackup: boolean;
     retentionMonths: number;
+    mode?: 'full' | 'resume';
   }) {
     return request<{ backupId: string; status: string }>('/start', {
       method: 'POST',
       body: JSON.stringify(body),
     });
+  },
+  async getLastJob() {
+    return request<{
+      job: {
+        status: string;
+        stagingPath: string;
+        nasPath: string;
+        sources: Array<{
+          id: string;
+          label: string;
+          destPath: string;
+          sourcePath: string;
+        }>;
+      } | null;
+    }>('/last-job');
   },
   getProgressStream(backupId: string): EventSource {
     const url = `${BASE}/progress/${backupId}?sessionId=${encodeURIComponent(getSessionId())}`;

@@ -133,6 +133,7 @@ Session ID 以 `X-Session-Id` 標頭傳遞，儲存於瀏覽器 `sessionStorage`
 | GET | `/progress/:backupId` | SSE 串流進度事件 | — |
 | GET | `/logs/:backupId` | 取得備份日誌 | — |
 | GET | `/report/:backupId` | 取得 Markdown 備份報告 | — |
+| GET | `/last-job` | 取得上次作業清單（續傳） | ✓ |
 
 ---
 
@@ -140,10 +141,12 @@ Session ID 以 `X-Session-Id` 標頭傳遞，儲存於瀏覽器 `sessionStorage`
 
 1. 以 `mount_smbfs`（macOS）或 `mount -t cifs`（Linux）掛載 NAS；失敗則以 `smbclient` 備援。
 2. SSH 連至遠端，以 `sudo cp -R` 複製 FineReport 檔案至遠端暫存路徑，並 `chown`。
-3. **階段一（全部來源先打包）**：各來源遠端 `tar czf`；壓縮包 **> 30MB** 則遠端 `split -b 30m` 為 `.tgz.part000`…（產物先留在 FineReport 暫存）。
+3. **階段一（全部來源先打包）**：各來源遠端 `tar czf`；壓縮包 **> 30MB** 則遠端 `split -b 30m` 為 `.tgz.part000`…（產物先留在 FineReport 暫存）。某一來源打包失敗不中止後續來源。
 4. **階段二（再一一傳 NAS）**：對每個 `.tgz`／分卷：
-   - SFTP 下載至後端容器**本機暫存**，核對大小（失敗最多重試 3 次）；
-   - 再寫入 NAS：掛載成功則 `copyFile` 至掛載點（分卷放在 `destPath` 子目錄，如 `webroot/plugins/`）；備援則 `smbclient put`（同樣重試＋核對）。
+   - SFTP 下載至後端容器**本機暫存**，核對大小（失敗最多重試 3 次）；**SFTP 成功不刪遠端產物**。
+   - 再寫入 NAS：掛載成功則以 **stream 複製**（禁止 `copyFile`）至掛載點；核對失敗（含 0 byte）則該檔改 `smbclient put`。備援路徑直接 put。
+   - NAS 核對成功後才刪該檔遠端產物與本機暫存。
+   - **單一檔失敗不中止**同來源剩餘分卷與後續來源；全部檔嘗試完才結束並寫一份報告。報告不應出現「前一來源傳輸失敗，未執行」。
    - 未分卷仍為 `webroot/plugins.tgz`；有分卷為 `webroot/plugins/plugins.tgz.part000`…。
    - 目的端不解壓。還原：
      ```bash
@@ -151,17 +154,20 @@ Session ID 以 `X-Session-Id` 標頭傳遞，儲存於瀏覽器 `sessionStorage`
      cat jar.tgz.part* > jar.tgz && tar xzf jar.tgz
      ```
    - 單檔傳輸逾時 5 分鐘；單一來源合計 45 分鐘；整體任務 2 小時。
-   - **上傳前會清除**同目的路徑下舊的 `.tgz`／`.tgz.part*`，避免與前次殘留混淆。
-5. 依設定刪除舊備份、產生 Markdown 報告：
-   - **完成度**：應傳數／已成功數／狀態（成功｜失敗｜未執行）；失敗列附失敗檔名與原因；後續未跑來源標「未執行」（非模糊的「未完成」）。
-   - **時間軸**：打包完成、清除舊產物、逐檔上傳成功／失敗、中止原因。
+   - **全部重來**時上傳前會清除同目的路徑下舊的 `.tgz`／`.tgz.part*`；**續傳**不清已核對成功的檔。
+5. 依設定刪除舊備份、產生 Markdown 報告（**每次獨立檔名，不覆蓋**）：
+   - 成功：`yyyyMMdd_HHmmss_備份月_FineReport備份報告.md`
+   - 失敗：同上加 `_失敗`
+   - **完成度**：應傳數／已成功數／狀態（成功｜失敗）；失敗列附失敗檔名與原因。
+   - **時間軸**：打包完成、清除舊產物、逐檔上傳成功／失敗。
    - **目錄結構**：僅列實際寫入 NAS 的檔案，並附「計畫 vs 實際」對照。
 
 **可靠性說明：**
 - **備份中重整頁面**：`backupId` 保存於 `sessionStorage`，重整後自動恢復到備份進度畫面並重連 SSE，直到取得最終報告。
 - **任務卡死**：逾時後自動產生失敗報告並結束。
-- **失敗報告**：備份失敗時，報告（含完成度、時間軸與實際目錄）仍會嘗試寫入 NAS。
-- **大檔截斷**：不再 SFTP 直寫 CIFS；先本機暫存核對再寫 NAS，並對單卷重試，降低 4MiB／16MiB 截斷誤報。
+- **失敗報告**：備份失敗時，報告仍會嘗試寫入 NAS，且**不覆蓋**先前報告。
+- **失敗後續傳**：同一 Session（未重啟後端）可按「從失敗處續傳」（只補未核對檔）或「全部重來」。後端重啟須重走連線／人為驗證。
+- **大檔截斷**：掛載寫入改 stream；0 byte 改 put；>30MB 仍分卷。
 
 **後端主機系統需求**：`smbclient`、`mount_smbfs`（macOS）或 `mount -t cifs`（Linux）；遠端 FineReport 主機需有 GNU `split`。
 
@@ -303,7 +309,7 @@ finereport-backup-backend:
 
 **症狀（舊版行為）**：445 已通、小檔可寫，但單檔 `.tgz`（約 >40MB／GB 級）在 `smbclient put` 或 CIFS 整包寫入時中斷；或報告顯示成功但 NAS 上檔案為 0 byte。
 
-**現行對策（v 分卷）**：壓縮包超過 **30MB** 時，遠端自動 `split` 為 `.tgz.part000`…，掛載與 smbclient **一律**逐卷傳輸，並核對每卷大小。還原見上方備份流程之 `cat …part*` 說明。
+**現行對策**：壓縮包超過 **30MB** 時遠端分卷；掛載寫入改 **stream**（不用 `copyFile`，避免 CIFS 寫成 0 byte）；核對失敗則該檔 `smbclient put`。Linux CIFS 掛載含 `vers=3.0,cache=strict,noserverino`。還原見上方 `cat …part*`。
 
 **仍建議**：後端容器設定 `CAP_SYS_ADMIN`／必要時 `privileged`，優先走 CIFS 掛載（見〈CIFS 掛載權限〉）。
 

@@ -77,12 +77,13 @@ export function runBackupAsync(
     nasPath: string;
     deleteOldBackup: boolean;
     retentionMonths: number;
+    mode?: 'full' | 'resume';
   }
 ): void {
-  const { sessionId, stagingPath, sources, nasPath, deleteOldBackup, retentionMonths } = options;
+  const { sessionId, stagingPath, sources, nasPath, deleteOldBackup, retentionMonths, mode } = options;
 
   void (async () => {
-    const { getOrCreateSession } = await import('../lib/sessionStore.js');
+    const { getOrCreateSession, getLastJob } = await import('../lib/sessionStore.js');
     const { runBackup } = await import('./backupService.js');
 
     const sess = getOrCreateSession(sessionId);
@@ -100,6 +101,7 @@ export function runBackupAsync(
       addLog(backupId, log);
     };
 
+    const lastJob = getLastJob(sessionId);
     try {
       await withTimeoutExec(
         runBackup({
@@ -109,6 +111,10 @@ export function runBackupAsync(
           nasPath,
           deleteOldBackup,
           retentionMonths,
+          mode: mode ?? 'full',
+          sessionId,
+          previousReportFileName: lastJob?.reportFileName ?? null,
+          resumeManifest: mode === 'resume' ? lastJob ?? null : null,
           ssh: sess.ssh,
           sudoPassword: sess.sudoPassword,
           nas: sess.nas,

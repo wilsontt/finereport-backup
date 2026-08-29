@@ -139,7 +139,7 @@ tar xzf jar.tgz
 | 遠端無 GNU `split` | 實作前以 FineReport 主機確認；失敗時明確錯誤 |
 | 殘留測試掛載被重用 | 日誌標「使用既有掛載點」；運維勿留 `/tmp/nas-mount-test` |
 | 分卷數多、總時間長 | 放寬來源總逾時；進度 message 顯示 part 序號 |
-| NAS 仍寫成 0 byte | 強制目的 size 核對，失敗則來源失敗 |
+| NAS 仍寫成 0 byte | stream 複製 + fsync 核對；失敗則該檔 smbclient put |
 
 ---
 
