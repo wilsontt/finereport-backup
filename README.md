@@ -1,5 +1,7 @@
 # FineReport 備份工具
 
+> **Node.js 版本（202610 資安修補）**：本機建議 `>=22.23.4`（nvm `.nvmrc`=`24.22.1`）；Docker 前端 `node:22.23.4-alpine`、後端 `node:22.23.4-bookworm-slim`。
+
 ![版本](https://img.shields.io/badge/版本-v1.2.1-blue) ![狀態](https://img.shields.io/badge/狀態-維護中-green)
 
 透過瀏覽器以 SSH（含 sudo）連線至 FineReport 伺服器，驗證 NAS（SMB）後，系統自動將 FineReport 相關檔案透過 SFTP 複製至 NAS，並產生 Markdown 備份報告。
@@ -213,7 +215,7 @@ echo "SMBCLIENT_PATH=/opt/homebrew/bin/smbclient" >> backend/.env
 
 ### Docker 部署情境（最常見）
 
-後端容器 **必須** 內含 smbclient。`Dockerfile.backend` 採 `node:18-bookworm-slim` 並安裝 `smbclient`、`cifs-utils`：
+後端容器 **必須** 內含 smbclient。`Dockerfile.backend` 採 `node:22.23.4-bookworm-slim` 並安裝 `smbclient`、`cifs-utils`：
 
 ```dockerfile
 RUN apt-get update \
@@ -380,7 +382,7 @@ Step 1/15 : FROM node:22-alpine AS builder
 COPY failed: no source files were specified
 ```
 
-這代表 `finereport-backup-backend` 用了 `Dockerfile.frontend`（`node:22-alpine` + `COPY 4.FineReport備份工具/frontend/...`），而非 `Dockerfile.backend`（`node:18-bookworm-slim` + `COPY backend/...`）。
+這代表 `finereport-backup-backend` 用了 `Dockerfile.frontend`（`node:22.23.4-alpine` + `COPY 4.FineReport備份工具/frontend/...`），而非 `Dockerfile.backend`（`node:22.23.4-bookworm-slim` + `COPY backend/...`）。
 
 **正確設定**（完整範例見 `deploy/docker-compose.finereport-backup.example.yml`）：
 

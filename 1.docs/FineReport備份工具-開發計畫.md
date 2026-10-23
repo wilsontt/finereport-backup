@@ -174,7 +174,7 @@ flowchart TB
 | 層級 | 技術 | 說明 |
 |------|------|------|
 | 前端 | React 19 + Vite + TypeScript | 與教育訓練、AETIM 一致 |
-| 後端 | Node.js 18 + Express + TypeScript | 參考 8.3.ai-agent-aetim/server |
+| 後端 | Node.js 22 + Express + TypeScript | 參考 8.3.ai-agent-aetim/server |
 | SSH/SFTP | ssh2、ssh2-sftp-client | 遠端連線與檔案傳輸 |
 | NAS | smb2 | SMB 連線，依 ID/PWD 連線，不常駐掛載 |
 | 進度 | Server-Sent Events (SSE) | 即時備份進度 |
