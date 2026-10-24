@@ -1,6 +1,6 @@
 # FineReport 備份工具
 
-> **Node.js 版本（202610 資安修補）**：本機建議 `>=22.23.4`（nvm `.nvmrc`=`24.22.1`）；Docker 前端 `node:22.23.4-alpine`、後端 `node:22.23.4-bookworm-slim`。
+> **Node.js 版本（202610 資安修補）**：本機建議 `>=22.23.4`（nvm `.nvmrc`=`24.22.1`）；Docker 前端 builder `node:24.22.1-alpine`、後端 `node:22.23.4-bookworm-slim`。
 
 ![版本](https://img.shields.io/badge/版本-v1.2.1-blue) ![狀態](https://img.shields.io/badge/狀態-維護中-green)
 
