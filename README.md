@@ -382,7 +382,7 @@ Step 1/15 : FROM node:22-alpine AS builder
 COPY failed: no source files were specified
 ```
 
-這代表 `finereport-backup-backend` 用了 `Dockerfile.frontend`（`node:22.23.4-alpine` + `COPY 4.FineReport備份工具/frontend/...`），而非 `Dockerfile.backend`（`node:22.23.4-bookworm-slim` + `COPY backend/...`）。
+這代表 `finereport-backup-backend` 用了 `Dockerfile.frontend`（`node:24.22.1-alpine` + `COPY 4.FineReport備份工具/frontend/...`），而非 `Dockerfile.backend`（`node:22.23.4-bookworm-slim` + `COPY backend/...`）。
 
 **正確設定**（完整範例見 `deploy/docker-compose.finereport-backup.example.yml`）：
 
