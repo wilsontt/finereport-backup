@@ -1,6 +1,3 @@
-/**
- * Session 儲存（記憶體，key 為 sessionId）
- */
 const store = new Map();
 const HUMAN_CODE_TTL_MS = 5 * 60 * 1000; // 5 分鐘
 export function getSession(sessionId) {
@@ -42,6 +39,13 @@ export function hasSshCredentials(sessionId) {
 }
 export function hasNasCredentials(sessionId) {
     return !!store.get(sessionId)?.nas;
+}
+export function setLastJob(sessionId, job) {
+    const s = getOrCreateSession(sessionId);
+    s.lastJob = job;
+}
+export function getLastJob(sessionId) {
+    return store.get(sessionId)?.lastJob;
 }
 export function clearSession(sessionId) {
     store.delete(sessionId);

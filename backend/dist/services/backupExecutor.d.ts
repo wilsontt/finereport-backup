@@ -23,5 +23,6 @@ export declare function runBackupAsync(backupId: string, options: {
     nasPath: string;
     deleteOldBackup: boolean;
     retentionMonths: number;
+    mode?: 'full' | 'resume';
 }): void;
 //# sourceMappingURL=backupExecutor.d.ts.map

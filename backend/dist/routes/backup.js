@@ -3,7 +3,7 @@
  */
 import { Router } from 'express';
 import { randomInt } from 'crypto';
-import { getOrCreateSession, setSession, setHumanCode, verifyHumanCode, isHumanVerified, hasSshCredentials, hasNasCredentials, } from '../lib/sessionStore.js';
+import { getOrCreateSession, setSession, setHumanCode, verifyHumanCode, isHumanVerified, hasSshCredentials, hasNasCredentials, getLastJob, } from '../lib/sessionStore.js';
 import { success, error } from '../lib/response.js';
 import { DEFAULT_BACKUP_SOURCES } from '../constants/defaultBackupSources.js';
 import { verifySsh, verifySudo, listRemoteDirectory } from '../services/sshService.js';
@@ -329,6 +329,21 @@ backupRouter.post('/start', async (req, res) => {
         !startBackupSchema.retentionMonths(body.retentionMonths)) {
         return error(res, 'ERR_VALIDATION', '參數驗證失敗', 400);
     }
+    const modeRaw = body.mode;
+    const mode = modeRaw === undefined || modeRaw === ''
+        ? 'full'
+        : modeRaw === 'full' || modeRaw === 'resume'
+            ? modeRaw
+            : null;
+    if (mode === null) {
+        return error(res, 'ERR_VALIDATION', 'mode 須為 full 或 resume', 400);
+    }
+    if (mode === 'resume') {
+        const last = getLastJob(sessionId);
+        if (!last || last.status !== 'failed') {
+            return error(res, 'ERR_NO_RESUME', '沒有可續傳的失敗作業', 400);
+        }
+    }
     const backupId = createBackupId();
     addProgress(backupId, { step: 'create_dirs', percent: 0, message: '備份已啟動' });
     runBackupAsync(backupId, {
@@ -338,8 +353,17 @@ backupRouter.post('/start', async (req, res) => {
         nasPath: body.nasPath,
         deleteOldBackup: body.deleteOldBackup === true,
         retentionMonths: Number(body.retentionMonths) || 0,
+        mode,
     });
     success(res, { backupId, status: 'running' }, 202);
+});
+/** 上次作業（續傳用） */
+backupRouter.get('/last-job', (req, res) => {
+    const sessionId = getSessionId(req);
+    if (!isHumanVerified(sessionId)) {
+        return error(res, 'ERR_NOT_VERIFIED', '請先完成 4 碼數字驗證', 403);
+    }
+    success(res, { job: getLastJob(sessionId) ?? null });
 });
 /** SSE 進度串流（持續推送直到備份完成） */
 backupRouter.get('/progress/:backupId', (req, res) => {
