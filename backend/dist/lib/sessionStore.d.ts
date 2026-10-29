@@ -1,6 +1,7 @@
 /**
  * Session 儲存（記憶體，key 為 sessionId）
  */
+import type { BackupJobManifest } from './backupJobManifest.js';
 export interface SessionData {
     ssh?: {
         host: string;
@@ -19,6 +20,7 @@ export interface SessionData {
     humanCode?: string;
     humanExpiresAt?: number;
     humanVerified?: boolean;
+    lastJob?: BackupJobManifest;
 }
 export declare function getSession(sessionId: string): SessionData | undefined;
 export declare function getOrCreateSession(sessionId: string): SessionData;
@@ -28,5 +30,7 @@ export declare function verifyHumanCode(sessionId: string, input: string): boole
 export declare function isHumanVerified(sessionId: string): boolean;
 export declare function hasSshCredentials(sessionId: string): boolean;
 export declare function hasNasCredentials(sessionId: string): boolean;
+export declare function setLastJob(sessionId: string, job: BackupJobManifest): void;
+export declare function getLastJob(sessionId: string): BackupJobManifest | undefined;
 export declare function clearSession(sessionId: string): void;
 //# sourceMappingURL=sessionStore.d.ts.map

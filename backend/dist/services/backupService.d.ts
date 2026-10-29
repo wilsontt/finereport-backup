@@ -1,5 +1,6 @@
 import type { SshCredentials } from './sshService.js';
 import type { NasCredentials } from './nasService.js';
+import { type BackupJobManifest, type BackupRunMode } from '../lib/backupJobManifest.js';
 interface BackupSource {
     id: string;
     sourcePath: string;
@@ -18,6 +19,10 @@ interface BackupOptions {
     nasPath: string;
     deleteOldBackup: boolean;
     retentionMonths: number;
+    mode?: BackupRunMode;
+    sessionId?: string;
+    previousReportFileName?: string | null;
+    resumeManifest?: BackupJobManifest | null;
     ssh: SshCredentials;
     sudoPassword: string;
     nas: NasCredentials;

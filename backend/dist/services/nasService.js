@@ -199,8 +199,15 @@ export async function mountNas(creds, mountPoint) {
             });
         }
         else {
-            // Linux: mount -t cifs
-            const opts = `username=${username},password=${password},domain=${domain}`;
+            // Linux: mount -t cifs（不把含密碼的 -o 寫進 log）
+            const opts = [
+                `username=${username}`,
+                `password=${password}`,
+                `domain=${domain}`,
+                'vers=3.0',
+                'cache=strict',
+                'noserverino',
+            ].join(',');
             const proc = spawn('mount', ['-t', 'cifs', `//${host}/${share}`, mountPoint, '-o', opts], {
                 stdio: ['ignore', 'pipe', 'pipe'],
             });

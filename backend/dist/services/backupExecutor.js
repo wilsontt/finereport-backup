@@ -46,9 +46,9 @@ function withTimeoutExec(promise, ms) {
  * 非同步執行備份流程（SFTP 下載 + SMB 上傳）
  */
 export function runBackupAsync(backupId, options) {
-    const { sessionId, stagingPath, sources, nasPath, deleteOldBackup, retentionMonths } = options;
+    const { sessionId, stagingPath, sources, nasPath, deleteOldBackup, retentionMonths, mode } = options;
     void (async () => {
-        const { getOrCreateSession } = await import('../lib/sessionStore.js');
+        const { getOrCreateSession, getLastJob } = await import('../lib/sessionStore.js');
         const { runBackup } = await import('./backupService.js');
         const sess = getOrCreateSession(sessionId);
         if (!sess.ssh || !sess.sudoPassword || !sess.nas) {
@@ -62,6 +62,7 @@ export function runBackupAsync(backupId, options) {
         const onLog = (log) => {
             addLog(backupId, log);
         };
+        const lastJob = getLastJob(sessionId);
         try {
             await withTimeoutExec(runBackup({
                 backupId,
@@ -70,6 +71,10 @@ export function runBackupAsync(backupId, options) {
                 nasPath,
                 deleteOldBackup,
                 retentionMonths,
+                mode: mode ?? 'full',
+                sessionId,
+                previousReportFileName: lastJob?.reportFileName ?? null,
+                resumeManifest: mode === 'resume' ? lastJob ?? null : null,
                 ssh: sess.ssh,
                 sudoPassword: sess.sudoPassword,
                 nas: sess.nas,
