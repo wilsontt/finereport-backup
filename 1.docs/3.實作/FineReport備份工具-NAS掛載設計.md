@@ -7,7 +7,7 @@
 **專案**：FineReport 備份工具  
 **版本**：v0.1  
 **最後更新**：2026-03-02  
-**關聯文件**：[需求確認紀錄](./FineReport備份工具-需求確認紀錄.md)、[技術設計](./FineReport備份工具-技術設計.md)
+**關聯文件**：[需求確認紀錄](../1.需求/FineReport備份工具-需求確認紀錄.md)、[技術設計](FineReport備份工具-技術設計.md)
 
 ---
 
@@ -222,6 +222,6 @@ umount /tmp/finereport-nas-xxx
 
 | 文件 | 路徑 |
 |------|------|
-| 需求確認紀錄 | 1.docs/FineReport備份工具-需求確認紀錄.md |
-| 技術設計 | 1.docs/FineReport備份工具-技術設計.md |
-| PRD | 1.docs/FineReport備份工具-PRD.md |
+| 需求確認紀錄 | 1.docs/1.需求/FineReport備份工具-需求確認紀錄.md |
+| 技術設計 | 1.docs/3.實作/FineReport備份工具-技術設計.md |
+| PRD | 1.docs/1.需求/FineReport備份工具-PRD.md |

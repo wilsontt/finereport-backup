@@ -7,7 +7,7 @@
 **專案**：FineReport 備份工具  
 **版本**：v0.1  
 **最後更新**：2026-08-29（已改：傳完所有檔再結束，取消 fail-fast）  
-**關聯文件**：[PLAN](./FineReport備份工具-失敗續傳與CIFS寫入-PLAN.md)、[NAS 分卷上傳設計](./FineReport備份工具-NAS分卷上傳設計.md)、[備份優化構想](./FineReport備份工具-備份優化構想.md)、[NAS 掛載設計](./FineReport備份工具-NAS掛載設計.md)
+**關聯文件**：[PLAN](../2.PLAN/FineReport備份工具-失敗續傳與CIFS寫入-PLAN.md)、[NAS 分卷上傳設計](FineReport備份工具-NAS分卷上傳設計.md)、[備份優化構想](../2.PLAN/FineReport備份工具-備份優化構想.md)、[NAS 掛載設計](FineReport備份工具-NAS掛載設計.md)
 
 ---
 
@@ -244,10 +244,10 @@ Asia/Taipei：
 
 ## 6. 參考文件
 
-- [FineReport備份工具-失敗續傳與CIFS寫入-PLAN.md](./FineReport備份工具-失敗續傳與CIFS寫入-PLAN.md)
-- [FineReport備份工具-NAS分卷上傳設計.md](./FineReport備份工具-NAS分卷上傳設計.md)
-- [FineReport備份工具-備份優化構想.md](./FineReport備份工具-備份優化構想.md)
-- [README.md](../README.md)
+- [FineReport備份工具-失敗續傳與CIFS寫入-PLAN.md](../2.PLAN/FineReport備份工具-失敗續傳與CIFS寫入-PLAN.md)
+- [FineReport備份工具-NAS分卷上傳設計.md](FineReport備份工具-NAS分卷上傳設計.md)
+- [FineReport備份工具-備份優化構想.md](../2.PLAN/FineReport備份工具-備份優化構想.md)
+- [README.md](../../README.md)
 
 ---
 
@@ -267,4 +267,4 @@ Asia/Taipei：
 
 ## 审批
 
-請確認本設計與 [PLAN](./FineReport備份工具-失敗續傳與CIFS寫入-PLAN.md) 後，於 Agent 模式指示「依 PLAN 實作」開始改程式。
+請確認本設計與 [PLAN](../2.PLAN/FineReport備份工具-失敗續傳與CIFS寫入-PLAN.md) 後，於 Agent 模式指示「依 PLAN 實作」開始改程式。

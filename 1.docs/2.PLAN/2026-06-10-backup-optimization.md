@@ -20,7 +20,7 @@
 | `frontend/src/App.tsx` | 3a | mount 時恢復 backupId、`onBackupStart` 寫入 sessionStorage |
 | `README.md` | 4 | 更新備份流程說明 |
 | `CLAUDE.md` | 4 | 更新架構說明 |
-| `1.docs/FineReport備份工具-備份優化構想.md` | 4 | 標記已完成項目 |
+| `1.docs/2.PLAN/FineReport備份工具-備份優化構想.md` | 4 | 標記已完成項目 |
 
 ---
 
@@ -720,7 +720,7 @@ cd ../frontend && npm run build && npm run lint
 **Files:**
 - Modify: `README.md`
 - Modify: `CLAUDE.md`
-- Modify: `1.docs/FineReport備份工具-備份優化構想.md`
+- Modify: `1.docs/2.PLAN/FineReport備份工具-備份優化構想.md`
 
 - [ ] **Step 4.1：更新 `README.md` — 備份流程段落**
 
@@ -750,7 +750,7 @@ cd ../frontend && npm run build && npm run lint
 
 - [ ] **Step 4.3：更新優化構想文件**
 
-在 `1.docs/FineReport備份工具-備份優化構想.md` 的「4. 優化項目與優先順序」表格中，將項目 1–3c 標記為已完成：
+在 `1.docs/2.PLAN/FineReport備份工具-備份優化構想.md` 的「4. 優化項目與優先順序」表格中，將項目 1–3c 標記為已完成：
 
 ```markdown
 | 1 | `schedule` 遠端打包下載 | 大量小檔加速 | P0 ✅ | `backupService.ts` |

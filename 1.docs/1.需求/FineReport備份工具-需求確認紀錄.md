@@ -7,7 +7,7 @@
 **專案**：FineReport 備份工具  
 **版本**：v1.0.0  
 **最後更新**：2026-03-02  
-**關聯文件**：[FineReport備份工具-開發計畫.md](./FineReport備份工具-開發計畫.md)
+**關聯文件**：[FineReport備份工具-開發計畫.md](../2.PLAN/FineReport備份工具-開發計畫.md)
 
 ---
 

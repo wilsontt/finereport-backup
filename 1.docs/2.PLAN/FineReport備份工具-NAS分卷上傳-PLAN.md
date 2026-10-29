@@ -8,7 +8,7 @@
 
 **Tech Stack:** Node.js / TypeScript、ssh2-sudo exec、ssh2-sftp-client、smbclient、遠端 GNU `split`
 
-**設計規格：** [FineReport備份工具-NAS分卷上傳設計.md](./FineReport備份工具-NAS分卷上傳設計.md)
+**設計規格：** [FineReport備份工具-NAS分卷上傳設計.md](../3.實作/FineReport備份工具-NAS分卷上傳設計.md)
 
 ## Global Constraints
 
@@ -28,7 +28,7 @@
 | `backend/src/lib/nasChunk.ts`（建議新增） | 純函式：閾值、應否分卷、part 檔名樣式、還原文案（易單測） |
 | `backend/src/lib/nasChunk.test.ts`（建議新增） | 上述純函式單元測試 |
 | `README.md` | 流程與還原、疑難排解 |
-| `1.docs/FineReport備份工具-備份優化構想.md` | 項目列狀態 |
+| `1.docs/2.PLAN/FineReport備份工具-備份優化構想.md` | 項目列狀態 |
 
 ---
 
@@ -97,8 +97,8 @@
 
 **Files:**
 - Modify: `README.md`
-- Modify: `1.docs/FineReport備份工具-備份優化構想.md`
-- Modify: `1.docs/FineReport備份工具-NAS分卷上傳設計.md`（狀態改「實作中／已實作」）
+- Modify: `1.docs/2.PLAN/FineReport備份工具-備份優化構想.md`
+- Modify: `1.docs/3.實作/FineReport備份工具-NAS分卷上傳設計.md`（狀態改「實作中／已實作」）
 
 - [x] README 備份流程改為：>30MB 遠端 split、逐卷傳、還原指令
 - [x] README「大檔 SMB」段補充：已改分卷；仍建議 CIFS 權限

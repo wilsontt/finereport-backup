@@ -3,7 +3,7 @@
 # 必讀規則與文件（開始前先讀）
 - 專案根目錄：/Users/wilson/5.Projects/3.企業入口網站/4.FineReport備份工具
 - 先讀 CLAUDE.md（專案架構與指令）、README.md（部署與備份流程）、.cursor/rules/ 下所有規則。
-- 計畫主文件：1.docs/FineReport備份工具-備份優化構想.md（本次實作以此為準）。
+- 計畫主文件：1.docs/2.PLAN/FineReport備份工具-備份優化構想.md（本次實作以此為準）。
 - 全程使用繁體中文溝通與註解；TypeScript 嚴禁使用 any；採 async/await；命名遵循 camelCase/PascalCase/CONSTANT_CASE；遵守 SOLID/KISS/DRY。
 - 安全：嚴禁硬編碼密碼/金鑰；密碼不得寫入任何日誌或報告。
 - crypto：若使用 randomUUID 必須有非 Secure Context 的 fallback（見 web-crypto 規則）。
@@ -63,7 +63,7 @@
 # 文件同步（必做）
 - 更新 README.md 備份流程段落（schedule 打包、報告必產生、可重連、逾時）。
 - 更新 CLAUDE.md 對應行為說明。
-- 更新 1.docs/FineReport備份工具-備份優化構想.md：將已完成項目標記為完成，項目 4 維持為後續里程碑。
+- 更新 1.docs/2.PLAN/FineReport備份工具-備份優化構想.md：將已完成項目標記為完成，項目 4 維持為後續里程碑。
 
 # 工作方式
 - 先列出實作計畫（todo），逐項完成並自我檢查；不要一次大改難以審查。

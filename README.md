@@ -453,10 +453,10 @@ docker compose exec finereport-backup-frontend sh -c "sed -n '1,40p' /usr/share/
 
 | 文件 | 路徑 |
 |------|------|
-| 開發計畫 | `1.docs/FineReport備份工具-開發計畫.md` |
-| PRD | `1.docs/FineReport備份工具-PRD.md` |
-| 技術設計 | `1.docs/FineReport備份工具-技術設計.md` |
-| NAS 掛載設計 | `1.docs/FineReport備份工具-NAS掛載設計.md` |
-| 前端 UI 重設計計畫 | `1.docs/FineReport備份工具-前端UI重設計計畫.md` |
-| 需求確認紀錄 | `1.docs/FineReport備份工具-需求確認紀錄.md` |
-| SDD 開發進度清單 | `1.docs/FineReport備份工具-SDD開發進度清單.md` |
+| 開發計畫 | `1.docs/2.PLAN/FineReport備份工具-開發計畫.md` |
+| PRD | `1.docs/1.需求/FineReport備份工具-PRD.md` |
+| 技術設計 | `1.docs/3.實作/FineReport備份工具-技術設計.md` |
+| NAS 掛載設計 | `1.docs/3.實作/FineReport備份工具-NAS掛載設計.md` |
+| 前端 UI 重設計計畫 | `1.docs/2.PLAN/FineReport備份工具-前端UI重設計計畫.md` |
+| 需求確認紀錄 | `1.docs/1.需求/FineReport備份工具-需求確認紀錄.md` |
+| SDD 開發進度清單 | `1.docs/2.PLAN/FineReport備份工具-SDD開發進度清單.md` |

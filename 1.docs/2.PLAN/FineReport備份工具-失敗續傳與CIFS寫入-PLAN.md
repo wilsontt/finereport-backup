@@ -8,7 +8,7 @@
 
 **Tech Stack:** Node.js / TypeScript、`node:stream/promises`、`node:test`、Express、React
 
-**設計規格：** [FineReport備份工具-失敗續傳與CIFS寫入-設計.md](./FineReport備份工具-失敗續傳與CIFS寫入-設計.md)
+**設計規格：** [FineReport備份工具-失敗續傳與CIFS寫入-設計.md](../3.實作/FineReport備份工具-失敗續傳與CIFS寫入-設計.md)
 
 ## Global Constraints
 
@@ -41,7 +41,7 @@
 | `frontend/src/api/backup.ts` | start 帶 mode、getLastJob |
 | `frontend/src/App.tsx` | 失敗後不強制回 credentials；還原 last-job |
 | `frontend/src/components/BackupProgress.tsx` | 續傳／全部重來按鈕 |
-| `README.md`、`CLAUDE.md`、`1.docs/FineReport備份工具-備份優化構想.md` | 文件同步 |
+| `README.md`、`CLAUDE.md`、`1.docs/2.PLAN/FineReport備份工具-備份優化構想.md` | 文件同步 |
 
 ---
 
@@ -273,9 +273,9 @@ lastJob?: BackupJobManifest;
 **Files:**
 - Modify: `README.md`（備份流程、報告檔名、失敗續傳、CIFS 0 byte 對策、大檔 SMB 段）
 - Modify: `CLAUDE.md`（流程第 3–5 點、報告檔名、續傳）
-- Modify: `1.docs/FineReport備份工具-備份優化構想.md`（新增項目 6 狀態 ✅）
-- Modify: `1.docs/FineReport備份工具-失敗續傳與CIFS寫入-設計.md` 狀態徽章改「已實作」
-- Modify: `1.docs/FineReport備份工具-NAS分卷上傳設計.md` 風險「NAS 仍寫成 0 byte」緩解改為 stream + 單檔 smbclient
+- Modify: `1.docs/2.PLAN/FineReport備份工具-備份優化構想.md`（新增項目 6 狀態 ✅）
+- Modify: `1.docs/3.實作/FineReport備份工具-失敗續傳與CIFS寫入-設計.md` 狀態徽章改「已實作」
+- Modify: `1.docs/3.實作/FineReport備份工具-NAS分卷上傳設計.md` 風險「NAS 仍寫成 0 byte」緩解改為 stream + 單檔 smbclient
 
 README 必寫：
 

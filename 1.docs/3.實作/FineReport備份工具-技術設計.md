@@ -7,7 +7,7 @@
 **專案**：FineReport 備份工具  
 **版本**：v1.0.0  
 **最後更新**：2026-03-02  
-**關聯文件**：[開發計畫](./FineReport備份工具-開發計畫.md)、[PRD](./FineReport備份工具-PRD.md)
+**關聯文件**：[開發計畫](../2.PLAN/FineReport備份工具-開發計畫.md)、[PRD](../1.需求/FineReport備份工具-PRD.md)
 
 ---
 
@@ -455,6 +455,6 @@ const RETENTION_OPTIONS = [
 
 | 文件 | 路徑 |
 |------|------|
-| 開發計畫 | 1.docs/FineReport備份工具-開發計畫.md |
-| PRD | 1.docs/FineReport備份工具-PRD.md |
-| 需求確認紀錄 | 1.docs/FineReport備份工具-需求確認紀錄.md |
+| 開發計畫 | 1.docs/2.PLAN/FineReport備份工具-開發計畫.md |
+| PRD | 1.docs/1.需求/FineReport備份工具-PRD.md |
+| 需求確認紀錄 | 1.docs/1.需求/FineReport備份工具-需求確認紀錄.md |

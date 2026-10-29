@@ -7,7 +7,7 @@
 **專案**：FineReport 備份工具  
 **版本**：v0.1  
 **最後更新**：2026-08-06  
-**關聯文件**：[備份優化構想](./FineReport備份工具-備份優化構想.md)、[NAS 掛載設計](./FineReport備份工具-NAS掛載設計.md)、[技術設計](./FineReport備份工具-技術設計.md)、[PLAN](./FineReport備份工具-NAS分卷上傳-PLAN.md)
+**關聯文件**：[備份優化構想](../2.PLAN/FineReport備份工具-備份優化構想.md)、[NAS 掛載設計](FineReport備份工具-NAS掛載設計.md)、[技術設計](FineReport備份工具-技術設計.md)、[PLAN](../2.PLAN/FineReport備份工具-NAS分卷上傳-PLAN.md)
 
 ---
 
@@ -129,7 +129,7 @@ tar xzf jar.tgz
 |------|------|
 | `backend/src/services/backupService.ts` | 分卷邏輯、驗證、逾時、報告文案 |
 | `README.md` | 備份流程、分卷還原、大檔疑難 |
-| `1.docs/FineReport備份工具-備份優化構想.md` | 新增項目狀態 |
+| `1.docs/2.PLAN/FineReport備份工具-備份優化構想.md` | 新增項目狀態 |
 | （可選）單元測試 | 純函式：是否分卷、命名、報告字串 |
 
 ### 5.8 風險與緩解
@@ -145,10 +145,10 @@ tar xzf jar.tgz
 
 ## 6. 參考文件
 
-- [FineReport備份工具-備份優化構想.md](./FineReport備份工具-備份優化構想.md)
-- [FineReport備份工具-NAS掛載設計.md](./FineReport備份工具-NAS掛載設計.md)
-- [FineReport備份工具-技術設計.md](./FineReport備份工具-技術設計.md)
-- [README.md](../README.md)
+- [FineReport備份工具-備份優化構想.md](../2.PLAN/FineReport備份工具-備份優化構想.md)
+- [FineReport備份工具-NAS掛載設計.md](FineReport備份工具-NAS掛載設計.md)
+- [FineReport備份工具-技術設計.md](FineReport備份工具-技術設計.md)
+- [README.md](../../README.md)
 
 ---
 
@@ -173,4 +173,4 @@ tar xzf jar.tgz
 
 ## 审批
 
-請確認本設計後，依 [PLAN](./FineReport備份工具-NAS分卷上傳-PLAN.md) 實作。
+請確認本設計後，依 [PLAN](../2.PLAN/FineReport備份工具-NAS分卷上傳-PLAN.md) 實作。

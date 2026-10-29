@@ -7,7 +7,7 @@
 **專案**：FineReport 備份工具  
 **版本**：v1.0.0  
 **最後更新**：2026-03-02  
-**關聯文件**：[FineReport備份工具-開發計畫.md](./FineReport備份工具-開發計畫.md) §10
+**關聯文件**：[FineReport備份工具-開發計畫.md](FineReport備份工具-開發計畫.md) §10
 
 ---
 
@@ -71,7 +71,7 @@
 ### 階段 4：技術設計
 
 **說明**：完成本設計的細化（API 規格、錯誤碼、資料結構）  
-**產物**：[FineReport備份工具-技術設計.md](./FineReport備份工具-技術設計.md)  
+**產物**：[FineReport備份工具-技術設計.md](../3.實作/FineReport備份工具-技術設計.md)  
 **完成日期**：2026-03-02
 
 - [x] API 規格書產出（含 Request/Response 範例）
@@ -118,6 +118,6 @@
 
 | 文件 | 路徑 |
 |------|------|
-| 開發計畫 | 1.docs/FineReport備份工具-開發計畫.md |
-| 技術設計 | 1.docs/FineReport備份工具-技術設計.md |
+| 開發計畫 | 1.docs/2.PLAN/FineReport備份工具-開發計畫.md |
+| 技術設計 | 1.docs/3.實作/FineReport備份工具-技術設計.md |
 | 徽章使用規範 | 3.ISO27001稽核自動化需求/0.standards/徽章使用規範.md |
